@@ -172,6 +172,7 @@ def main():
     # Uncomment the following line to process and store PDF documents
     # process_and_store_pdf('UNIT 1.pdf', user_type, user_id)
     chatbot(user_type, user_id)
+    driver.close()
     
 
 
