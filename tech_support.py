@@ -10,9 +10,6 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # Initialize the generative model
 model = genai.GenerativeModel('gemini-pro')
 
-# Initialize conversation history
-conversation_history = []
-
 # Function to generate an answer using the model
 def generate_answer(prompt):
     response = model.generate_content(prompt)
@@ -64,38 +61,31 @@ def tech_support_chat():
     while True:
         # Step 1: Ask the type of tech support needed
         user_input = input("Bot: What kind of tech support do you need? (Hardware, Software, Network): ")
-        conversation_history.append(f"You: {user_input}")
         
         # Step 2: Ask for the specific issue
         issue_description = input(f"Bot: What is the issue with {user_input}? Please describe it briefly: ")
-        conversation_history.append(f"You: {issue_description}")
         
         # Step 3: Generate troubleshooting steps dynamically from Gemini
         troubleshooting_prompt = (
         f"Please provide at least three detailed troubleshooting steps for addressing {user_input} issues related to '{issue_description}'. "
         f"Format your response with clear instructions, starting with 'Please try the following troubleshooting steps:'")
         troubleshooting_steps = generate_answer(troubleshooting_prompt)
-        conversation_history.append(f"Bot: {troubleshooting_steps}")
         print(f"Bot: {troubleshooting_steps}")
         
         # Step 4: Ask if the solution resolved the issue
         feedback = input("Bot: Did this solution resolve your issue? (Yes or No): ")
-        conversation_history.append(f"You: {feedback}")
         
         if feedback.lower() == "no":
             # Step 5: Ask if the issue should be escalated
             escalate = input("Bot: Would you like to escalate this issue? (Yes or No): ")
-            conversation_history.append(f"You: {escalate}")
             
             if escalate.lower() == "yes":
                 # Ask for the priority of the issue
                 priority = input("Bot: What is the priority of this issue? (Low, Medium, High): ")
-                conversation_history.append(f"You: {priority}")
                 
                 # Generate a ticket ID
                 ticket_id = generate_ticket_id()
                 print(f"Bot: Your issue has been escalated. Ticket ID: {ticket_id}")
-                conversation_history.append(f"Bot: Your issue has been escalated. Ticket ID: {ticket_id}")
                 
                 # Get User ID (for simplicity, you can hard-code it or ask the user to input it)
                 user_id = "user123"  # Replace with actual user ID logic
@@ -104,10 +94,8 @@ def tech_support_chat():
                 send_email(ticket_id, user_input, issue_description, troubleshooting_steps, user_id, priority)
             else:
                 print("Bot: Thank you for using tech support!")
-                conversation_history.append("Bot: Thank you for using tech support!")
         else:
             print("Bot: Glad the issue was resolved!")
-            conversation_history.append("Bot: Glad the issue was resolved!")
         
         # End chat after one interaction, or loop back for more queries
         more_help = input("Bot: Do you need further assistance? (Yes or No): ")
