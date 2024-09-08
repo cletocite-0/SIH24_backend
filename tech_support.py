@@ -67,7 +67,7 @@ def tech_support_chat():
         
         # Step 3: Generate troubleshooting steps dynamically from Gemini
         troubleshooting_prompt = (
-        f"Please provide at least three detailed troubleshooting steps for addressing {user_input} issues related to '{issue_description}'. "
+        f"Please provide at least three breif troubleshooting steps for addressing {user_input} issues related to '{issue_description}'. "
         f"Format your response with clear instructions, starting with 'Please try the following troubleshooting steps:'")
         troubleshooting_steps = generate_answer(troubleshooting_prompt)
         print(f"Bot: {troubleshooting_steps}")
