@@ -5,6 +5,9 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_groq import ChatGroq
 
 import os
+import dotenv
+
+dotenv.load_dotenv()
 
 
 class RouteQuery(BaseModel):
@@ -18,12 +21,9 @@ class RouteQuery(BaseModel):
 
 def obtain_question_router():
 
-    GROQ_API_KEY = "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"
-    os.environ["GROQ_API_KEY"] = GROQ_API_KEY
-    ...
-
-    model_name = "llama3-70b-8192"
-    model = ChatGroq(temperature=0, model_name="gemma2-9b-it")
+    model = ChatGroq(
+        temperature=0, model_name="gemma2-9b-it", api_key=os.environ["GROQ_API_KEY"]
+    )
 
     structured_llm_router = model.with_structured_output(RouteQuery)
 

@@ -1,6 +1,9 @@
+from io import BytesIO
 from typing import List
 
 from typing_extensions import TypedDict
+
+from fastapi import UploadFile
 
 
 class GraphState(TypedDict):
@@ -13,6 +16,10 @@ class GraphState(TypedDict):
         documents: list of documents
     """
 
+    user_id: str
     question: str
     generation: str
     documents: List[str]
+    # pdf: BytesIO
+    pdf: str
+    video: UploadFile
