@@ -8,7 +8,10 @@ from nodes import (
     generation,
     review_generation,
     regenerate,
+    human_in_the_loop,
 )
+
+from tools import send_email
 
 
 def graph():
@@ -17,7 +20,9 @@ def graph():
     # Define the nodes
     workflow.add_node("neo4j_user_node", neo4j_user_node)  # neo4j_user_node
     workflow.add_node("neo4j_common_node", neo4j_common_node)  # neo4j_common_node
-    workflow.add_node("generation", generation)  # generation
+    workflow.add_node("generation", generation)
+    workflow.add_node("human_in_the_loop", human_in_the_loop)
+    workflow.add_node("send_email", send_email)  # send_email
     workflow.add_node("review_generation", review_generation)  # review_generation
     workflow.add_node("regenerate", regenerate)  # regenerate
 
@@ -32,25 +37,28 @@ def graph():
     )
     workflow.add_edge("neo4j_common_node", "generate")
     workflow.add_edge("neo4j_user_node", "generate")
-    workflow.add_edge("retrieve", "grade_documents")
+    workflow.add_edge("generate", "review_generation")
+
     workflow.add_conditional_edges(
         "review_generation",
         review_generation,
         {
             "transform_query": "transform_query",
-            "generate": "generate",
+            "proceed": human_in_the_loop,
         },
     )
-    workflow.add_edge("transform_query", "retrieve")
+
     workflow.add_conditional_edges(
-        "generate",
-        generation,
+        "humain_in_the_loop",
+        human_in_the_loop,
         {
-            "not supported": "generate",
-            "useful": END,
-            "not useful": "transform_query",
+            "email": "send_email",
+            "ticket": "send_ticket",
+            "respond": END,
         },
     )
+
+    workflow.add_edge("send_email", END)
 
     # Compile
     graph = workflow.compile()

@@ -1,4 +1,4 @@
-from models import route_query, model_generation
+from models import route_query, model_generation, human_in_the_loop
 
 
 def route(state):
@@ -51,6 +51,29 @@ def generation(state):
     # RAG generation
     generation = rag_chain.invoke({"context": documents, "question": question})
     return {"documents": documents, "question": question, "generation": generation}
+
+
+def human_in_the_loop(state):
+    """
+    Check if human intervention is required.
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        state (dict): Updated state with human_in_the_loop key
+
+    """
+    print("---HUMAN IN THE LOOP---")
+    generation = state["generation"]
+    documents = state["documents"]
+    question = state["question"]
+
+    check_human_interaction = human_in_the_loop.check_human_interaction()
+    human_in_the_loop = human_in_the_loop.invoke(
+        {"generation": generation, "documents": documents, "question": question}
+    )
+    return human_in_the_loop.binary_score
 
 
 def review_generation(state):
