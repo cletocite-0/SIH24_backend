@@ -41,8 +41,10 @@ def route(state):
     print("---ROUTE QUESTION---")
     question = state["question"]
 
-    if state["pdf"] != None or state["mp3"] != None or state["video"] != None:
+    if state["pdf"] != None:
         return "update_knowledge_graph"
+    elif state["video"] != None:
+        return "video_processing"
 
     question_router = obtain_question_router()
 
@@ -184,6 +186,25 @@ def update_knowledge_graph(state):
     store_embeddings_in_neo4j(documents, embeddings, state["user_id"])
 
     return {"user_id": state["user_id"], "question": state["question"]}
+
+
+def video_processing(state):
+    """
+    Process the video and extract text.
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        state (dict): Updated state with video key
+    """
+    print("---VIDEO PROCESSING---")
+    video = state["video"]
+
+    video_loader = YoutubeLoader(video)
+    video_text = video_loader.load_text()
+
+    return {"question": state["question"], "documents": video_text}
 
 
 def human_in_the_loop(state):

@@ -25,19 +25,12 @@ async def query(
     user_id: str = Form(...),
     question: str = Form(...),
     pdf: Optional[UploadFile] = File(None),
-    mp3: Optional[UploadFile] = File(None),
     video: Optional[UploadFile] = File(None),
 ):
     graph_app = graph()
     # Access the uploaded files
     filename = Optional[str]
     if pdf:
-        filename = pdf.filename
-        # pdf_content = await pdf.read()
-        # print(pdf_content)
-        # pdf_stream = io.BytesIO(pdf_content)
-        # Process the PDF content
-        # pdf_text = extract_text(io.BytesIO(pdf_content))
         file_path = os.path.join("_files", pdf.filename)
         # Save the file
         with open(file_path, "wb") as f:
@@ -46,22 +39,20 @@ async def query(
 
         print("PDF content recieved")
 
-    if mp3:
-        mp3_content = await mp3.read()
-        # Process the MP3 content
-        print("MP3 content recieved")
-
     if video:
-        video_content = await video.read()
-        # Process the video content
-        print("Video content recieved")
+        video_path = os.path.join("_videos", video.filename)
+        # Save the video file
+        with open(video_path, "wb") as f:
+            content = await video.read()  # Read the file content asynchronously
+            f.write(content)  # Write the video content to the defined path
+
+        print(f"Video content received and saved to {video_path}.")
 
     for output in graph_app.stream(
         {
             "user_id": user_id,
             "question": question,
             "pdf": pdf,
-            "mp3": mp3,
             "video": video,
         }
     ):
