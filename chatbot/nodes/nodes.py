@@ -64,6 +64,25 @@ def route(state):
     elif source.datasource == "tech_support":
         print("---ROUTE QUERY TO TECH SUPPORT---")
         return "tech_support"
+    elif source.datasource == "bad_language":
+        print("---ROUTE QUERY TO BAD LANGUAGE NODE---")
+        return "bad_language"
+
+
+def bad_language(state):
+    """
+    Route question to bad language node.
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        str: Next node to call
+    """
+    print("---BAD LANGUAGE NODE---")
+    return {
+        "generation": "The question contains offensive language. Please rephrase your query."
+    }
 
 
 def route_summarization_usernode(state):
@@ -120,6 +139,8 @@ def neo4j_user_node(state):
 
     documents = get_relevant_context(query_embedding, "user", user_id)
 
+    print(documents)
+
     return {"documents": documents, "question": query}
 
 
@@ -155,10 +176,34 @@ def generate(state):
     question = state["question"]
     documents = state["documents"]
 
-    rag_chain = obtain_rag_chain()
-    # RAG generation
-    generation = rag_chain.invoke({"context": documents, "question": question})
-    return {"documents": documents, "question": question, "generation": generation}
+    # rag_chain = obtain_rag_chain()
+    # # RAG generation
+    # generation = rag_chain.invoke({"context": documents, "question": question})
+
+    prompt = f"""
+    You are a helpful assistant with access to specific documents. Please follow these guidelines:
+    
+    0. **Output**: Should be descriptive with respect to the question in three (3) lines.
+
+    1. **Contextual Relevance**: Only provide answers based on the provided context. If the query does not relate to the context or if there is no relevant information, respond with "The query is not relevant to the provided context."
+
+    2. **Language and Behavior**: Ensure that your response is polite and respectful. Avoid using any inappropriate language or making offensive statements.
+
+    3. **Content Limitations**: Do not use or refer to any external data beyond the context provided.
+
+    **Context**: {state['documents']}
+
+    **Question**: {state['question']}
+
+    **Answer**:
+    """
+    response = model.generate_content(prompt)
+
+    return {
+        "documents": documents,
+        "question": question,
+        "generation": response.parts[0].text,
+    }
 
 
 def summarize(state):
