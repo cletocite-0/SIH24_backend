@@ -35,6 +35,7 @@ Route to "common_node" if:
 The query is about general company policies, procedures, or global information.
 The question relates to company-wide support, products, or services.
 The inquiry is about standard practices, regulations, or information that applies to all employees or departments.
+The query also relates to tech support or raising tickets throught mail or any other system.
 The query doesn't mention or imply any user-specific context.
 
 
