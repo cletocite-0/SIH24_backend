@@ -21,5 +21,9 @@ class GraphState(TypedDict):
     generation: str
     documents: List[str]
     # pdf: BytesIO
+    breakpoint: str
     pdf: str
     video: UploadFile
+    support_type: str
+    priority: str
+    troubleshooting_steps: str

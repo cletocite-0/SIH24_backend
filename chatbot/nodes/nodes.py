@@ -1,7 +1,6 @@
+from email.mime.text import MIMEText
+import smtplib
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import Optional
 from langchain_community.document_loaders import YoutubeLoader
 from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
@@ -12,7 +11,7 @@ import google.generativeai as genai
 import requests
 import pdfplumber
 from io import BytesIO
-import sys, io
+import dotenv, os
 
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
@@ -23,8 +22,15 @@ from utils.utils import (
     get_jina_embeddings,
     get_relevant_context,
     store_embeddings_in_neo4j,
-    get_prompt,
+    generate_ticket_id,
 )
+
+dotenv.load_dotenv()
+
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+
+# Initialize the generative model
+model = genai.GenerativeModel("gemini-pro")
 
 
 def route(state):
@@ -55,6 +61,9 @@ def route(state):
     elif source.datasource == "common_node":
         print("---ROUTE QUERY TO COMMON NODE IN NEO4J---")
         return "common_node"
+    elif source.datasource == "tech_support":
+        print("---ROUTE QUERY TO TECH SUPPORT---")
+        return "tech_support"
 
 
 def route_summarization_usernode(state):
@@ -77,6 +86,23 @@ def route_summarization_usernode(state):
         print("---ROUTE QUERY TO GENERATE---")
         print(source.routeoutput)
         return {"next": "summarize", "question": question}
+
+
+def route_after_breakpoint(state):
+    decision = state["decision"]
+    breakpoint = state["breakpoint"]
+
+    if decision == "proceed":
+        if breakpoint == "1":
+            return "breakpoint_2"
+        elif breakpoint == "2":
+            return "breakpoint_3"
+        elif breakpoint == "3":
+            return "final_node"
+    elif decision == "retry":
+        return f"breakpoint_{breakpoint}"
+    else:
+        return "END"
 
 
 def neo4j_user_node(state):
@@ -207,27 +233,52 @@ def video_processing(state):
     return {"question": state["question"], "documents": video_text}
 
 
-def human_in_the_loop(state):
-    """
-    Check if human intervention is required.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        state (dict): Updated state with human_in_the_loop key
-
-    """
-    print("---HUMAN IN THE LOOP---")
-    generation = state["generation"]
-    documents = state["documents"]
-    question = state["question"]
-
-    check_human_interaction = human_in_the_loop.check_human_interaction()
-    human_in_the_loop = human_in_the_loop.invoke(
-        {"generation": generation, "documents": documents, "question": question}
+def tech_support(state):
+    troubleshooting_prompt = (
+        f"Please provide at least three detailed troubleshooting steps for addressing  issues related to '{state['question']}'. "
+        f"Format your response with clear instructions, starting with 'Please try the following troubleshooting steps:'"
     )
-    return human_in_the_loop.binary_score
+
+    response = model.generate_content(troubleshooting_prompt)
+
+    return {"generation": response.parts[0].text}
+
+
+def send_email(state, support_type, priority, issue_description, troubleshooting_steps):
+    sender_email = "cletocite@gmail.com"
+    receiver_email = "cletocite.techs@gmail.com"
+    sender_password = "dxkbhzyaqaqcgrrq"  # App password or your email password
+
+    ticket_id = generate_ticket_id()
+
+    subject = f"TECH SUPPORT - {support_type} - {ticket_id}"
+    body = (
+        f"Dear Tech Support Team,\n\n"
+        f"Please find the details of the tech support request below:\n\n"
+        f"User ID: {state['user_id']}\n"
+        f"Ticket ID: {ticket_id}\n"
+        f"Priority: {priority}\n\n"
+        f"Support Type: {support_type}\n"
+        f"Issue Description: {issue_description}\n\n"
+        f"Troubleshooting Steps Taken:\n{troubleshooting_steps}\n\n"
+        f"Please review the provided information and take the necessary actions.\n\n"
+        f"Thank you,\n"
+        f"Tech Support Bot"
+    )
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = receiver_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email. Error: {e}")
 
 
 def review_generation(state):

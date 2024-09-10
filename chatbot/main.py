@@ -1,12 +1,12 @@
+import os
 import io
-
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
-import os
 from graph.graph import graph
+import json
 
 app = FastAPI()
 
@@ -20,54 +20,59 @@ class QueryRequest(BaseModel):
     video: Optional[UploadFile] = None
 
 
-@app.post("/query")
-async def query(
-    user_id: str = Form(...),
-    question: str = Form(...),
-    pdf: Optional[UploadFile] = File(None),
-    video: Optional[UploadFile] = File(None),
-):
+@app.websocket("/ws/query")
+async def query_via_websocket(websocket: WebSocket):
+    await websocket.accept()
     graph_app = graph()
-    # Access the uploaded files
-    filename = Optional[str]
-    if pdf:
-        file_path = os.path.join("_files", pdf.filename)
-        # Save the file
-        with open(file_path, "wb") as f:
-            content = await pdf.read()  # Read the file content asynchronously
-            f.write(content)  # Write the file content to the defined path
 
-        print("PDF content recieved")
+    while True:
+        try:
+            # Wait for the message from the client
+            data = await websocket.receive_text()
 
-    if video:
-        video_path = os.path.join("_videos", video.filename)
-        # Save the video file
-        with open(video_path, "wb") as f:
-            content = await video.read()  # Read the file content asynchronously
-            f.write(content)  # Write the video content to the defined path
+            # Parse incoming message
+            request_data = json.loads(data)
+            user_id = request_data.get("user_id")
+            question = request_data.get("question")
+            pdf = request_data.get("pdf")  # Assuming base64-encoded or some format
+            video = request_data.get("video")  # Assuming base64-encoded or some format
 
-        print(f"Video content received and saved to {video_path}.")
+            # Handle uploaded files (if any)
+            if pdf:
+                file_path = os.path.join("_files", "uploaded_pdf.pdf")
+                with open(file_path, "wb") as f:
+                    f.write(pdf)  # Assuming pdf is sent as bytes
+                print("PDF content received")
 
-    for output in graph_app.stream(
-        {
-            "user_id": user_id,
-            "question": question,
-            "pdf": pdf,
-            "video": video,
-        }
-    ):
-        for key, value in output.items():
-            # Node
-            pprint(f"Node '{key}':")
-            # Optional: print full state at each node
-            # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
-        pprint("\n---\n")
-        print("\n")
+            if video:
+                video_path = os.path.join("_videos", "uploaded_video.mp4")
+                with open(video_path, "wb") as f:
+                    f.write(video)  # Assuming video is sent as bytes
+                print(f"Video content received and saved to {video_path}")
 
-    # Final generation
-    pprint(value["generation"])
+            # Pass the data to the graph for processing
+            for output in graph_app.stream(
+                {
+                    "user_id": user_id,
+                    "question": question,
+                    "pdf": file_path if pdf else None,
+                    "video": video_path if video else None,
+                }
+            ):
+                for key, value in output.items():
+                    # Send node information back via WebSocket
+                    await websocket.send_text(f"Node '{key}': {value}")
+                    pprint(f"Node '{key}': {value}")
 
-    return {"generation": value["generation"]}
+            # Final generation response
+            await websocket.send_text(f"Generation: {value['generation']}")
+            pprint(value["generation"])
+
+        except Exception as e:
+            await websocket.send_text(f"Error: {str(e)}")
+            break
+
+    await websocket.close()
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import random
 import requests
 import os, dotenv
 from langchain_community.document_loaders import YoutubeLoader
@@ -11,6 +12,8 @@ import requests
 import pdfplumber
 from io import BytesIO
 import sys, io
+import json
+import websockets
 
 
 dotenv.load_dotenv()
@@ -135,3 +138,15 @@ def get_prompt(context, query_text):
 
     *Answer*:
     """
+
+
+async def send_update_to_frontend(state, breakpoint_id):
+    async with websockets.connect("ws://localhost:8765") as websocket:
+        update = {"breakpoint_id": breakpoint_id, "state": state.to_dict()}
+        await websocket.send(json.dumps(update))
+        response = await websocket.recv()
+        return json.loads(response)
+
+
+def generate_ticket_id():
+    return f"TICKET-{random.randint(1000,9999)}"
