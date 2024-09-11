@@ -4,10 +4,22 @@ from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
+from neo4j import GraphDatabase
 import pdfplumber
 from io import BytesIO
 import dotenv, os
-
+from datetime import datetime, timedelta
+import google.generativeai as genai
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+import json
+import pytz
+import re
+import os
+import pickle
+import time
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
 from models.route_summ_query import obtain_summ_usernode_router
@@ -51,6 +63,14 @@ def route(state):
         return "update_knowledge_graph"
     elif state["video"] != None:
         return "video_processing"
+
+    pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
+
+    match = re.match(pattern, state["question"])
+
+    if match:
+        time, date, emails, subject = match.groups()
+        return "schedule_meeting"
 
     question_router = obtain_question_router()
 
@@ -197,7 +217,9 @@ def generate(state):
 
     **Answer**:
 
-    Return your answer in markdown format (bold,italics,underline) as required
+    Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
+    Use as much markdown as possible to format your response.
+    Use ## for headings and ``` code blocks for code.```
     """
     response = model.generate_content(prompt)
 
@@ -342,4 +364,248 @@ def send_email(state):
     except Exception as e:
         print(f"Failed to send email. Error: {e}")
 
-    return {"generation": state['generation'] + "\n\n ## Sending mail to escalate issue"}
+    return {"generation": state["generation"]}
+
+
+def schedule_meeting(state):
+    pass
+
+
+def meeting_shu(state):
+    SCOPES = ["https://www.googleapis.com/auth/calendar"]
+    TOKEN_FILE = "token.pickle"
+    CREDENTIALS_FILE = "C:\\Users\\rajku\\OneDrive\\Documents\\ClePro\\HACKATHON\\SIH24_backend\\chatbot\\nodes\\cred.json"
+
+    def generate_answer(prompt):
+        try:
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            print(f"Error generating answer: {e}")
+            return None
+
+    def extract_meeting_details(text):
+        prompt = f"""
+        Extract the following details from the text:
+        - Date of the meeting (in DD/MM/YYYY format or 'today' or 'tomorrow')
+        - Time of the meeting (in 12-hour format HH:MM AM/PM)
+        - List of attendees (as a list of email addresses)
+        - Summary of the meeting
+
+        Provide the extracted details as a JSON object with the following keys:
+        - "date": The date of the meeting.
+        - "time": The time of the meeting.
+        - "attendees": A list of email addresses.
+        - "summary": A brief summary of the meeting.
+
+        Text: "{text}"
+        """
+        answer = generate_answer(prompt)
+        print(f'Gemini response: "{answer}"')  # Include quotes for better visibility
+
+        if not answer:
+            print("No response from Gemini.")
+            return None
+
+        # Clean the response
+        cleaned_answer = re.sub(
+            r"^```json", "", answer
+        )  # Remove start code block delimiter
+        cleaned_answer = re.sub(
+            r"```$", "", cleaned_answer
+        )  # Remove end code block delimiter
+        cleaned_answer = cleaned_answer.strip()
+        print(f'Cleaned response: "{cleaned_answer}"')  # Debugging line
+
+        try:
+            details = json.loads(cleaned_answer)
+            if not isinstance(details, dict):
+                raise ValueError("Response is not a JSON object")
+            print(f"Parsed details: {details}")  # Debugging line
+            return details
+        except json.JSONDecodeError as e:
+            print(f"JSON decoding error: {e}")
+            return None
+        except ValueError as e:
+            print(f"Value error: {e}")
+            return None
+
+    def authenticate_google_calendar():
+        creds = None
+        # Check if token.pickle exists (stored token for re-use)
+        if os.path.exists(TOKEN_FILE):
+            with open(TOKEN_FILE, "rb") as token:
+                creds = pickle.load(token)
+
+        # If there are no valid credentials available, prompt the user to log in
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    CREDENTIALS_FILE, SCOPES
+                )
+                creds = flow.run_local_server(port=0)
+
+            # Save the credentials for the next run
+            with open(TOKEN_FILE, "wb") as token:
+                pickle.dump(creds, token)
+
+        service = build("calendar", "v3", credentials=creds)
+        return service
+
+    def convert_date_and_time(date_str, time_str):
+        now = datetime.now(pytz.timezone("Asia/Kolkata"))
+
+        if date_str.lower() == "today":
+            meeting_date = now.date()
+        elif date_str.lower() == "tomorrow":
+            meeting_date = now.date() + timedelta(days=1)
+        else:
+            try:
+                meeting_date = datetime.strptime(date_str, "%d/%m/%Y").date()
+            except ValueError:
+                print(f"Invalid date format: {date_str}")
+                return None, None
+
+        try:
+            meeting_time = datetime.strptime(time_str, "%I:%M %p").strftime("%H:%M")
+        except ValueError:
+            print(f"Invalid time format: {time_str}")
+            return None, None
+
+        start_time = datetime.combine(
+            meeting_date, datetime.strptime(meeting_time, "%H:%M").time()
+        )
+        end_time = start_time + timedelta(hours=1)
+
+        print(f"Converted start time: {start_time.isoformat()}")
+        print(f"Converted end time: {end_time.isoformat()}")
+
+        return start_time.isoformat(), end_time.isoformat()
+
+    def schedule_meeting(service, start_time, end_time, attendees, summary="Meeting"):
+        event = {
+            "summary": summary,
+            "start": {
+                "dateTime": start_time,
+                "timeZone": "Asia/Kolkata",  # Change this to your timezone
+            },
+            "end": {
+                "dateTime": end_time,
+                "timeZone": "Asia/Kolkata",  # Change this to your timezone
+            },
+            "attendees": [{"email": email} for email in attendees],
+            "reminders": {
+                "useDefault": True,
+            },
+        }
+        event = service.events().insert(calendarId="primary", body=event).execute()
+        print(f'Event created: {event.get("htmlLink")}')
+
+    def main_fun(user_input):
+        details = extract_meeting_details(user_input)
+
+        if details:
+            print(f"Extracted details: {details}")  # Debugging line
+
+            # Use correct keys from the parsed JSON
+            meeting_date = details.get("date") or details.get("meeting_date")
+            meeting_time = details.get("time") or details.get("meeting_time")
+            attendees = details.get("attendees", [])
+            summary = details.get("summary", "Meeting")
+
+            if not meeting_date or not meeting_time:
+                print("Date or time information missing.")
+                return
+
+            start_time, end_time = convert_date_and_time(meeting_date, meeting_time)
+
+            if start_time and end_time:
+                # Authenticate
+                service = authenticate_google_calendar()
+
+                # Retry loop for scheduling the meeting
+                max_retries = 5
+                retry_delay = 5  # seconds
+                for attempt in range(max_retries):
+                    try:
+                        schedule_meeting(
+                            service, start_time, end_time, attendees, summary
+                        )
+                        print("Event created successfully.")
+                        break  # Exit loop if successful
+                    except Exception as e:
+                        print(f"Error creating event: {e}")
+                        if attempt < max_retries - 1:
+                            print(f"Retrying in {retry_delay} seconds...")
+                            time.sleep(retry_delay)
+                        else:
+                            print("Failed to create event after multiple attempts.")
+            else:
+                print("Failed to convert date and time.")
+        else:
+            print("Failed to extract meeting details.")
+
+    main_fun(
+        "Schedule meeting @10:30 AM 10/09/2024 with gowsrini2004@gmail.com,idhikaprabakaran@gmail.com, forfungowtham@gmail.com, cowara987@gmail.com about SIH INTERNAL HACAKTHON"
+    )
+
+
+def hierachy(state):
+    NEO4J_URI = "neo4j+s://2cbd2ddb.databases.neo4j.io"
+    NEO4J_USERNAME = "neo4j"
+    NEO4J_PASSWORD = "W_OwGl8HD0XAHkvFoDWf93ZNpyCf-efTsEGcmgLVU_k"
+
+    # GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
+    class Neo4jClient:
+        def __init__(self, uri, user, password):
+            self.driver = GraphDatabase.driver(uri, auth=(user, password))
+
+        def close(self):
+            self.driver.close()
+
+        def fetch_graph_data(self):
+            query = """
+            MATCH (n)
+            OPTIONAL MATCH (n)-[r]->(m)
+            RETURN n, r, m
+            """
+            with self.driver.session() as session:
+                result = session.run(query)
+                data = []
+                for record in result:
+                    nodes = (record["n"], record["m"])
+                    relationships = record["r"]
+                    data.append({"nodes": nodes, "relationships": relationships})
+                return data
+
+    def generate_answer_graph(prompt):
+        response = model.generate_content(prompt)
+        return response.text
+
+    def main_fun(person):
+        client = Neo4jClient(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+        try:
+            graph_data = client.fetch_graph_data()
+            # Convert graph data to a textual representation
+            graph_document = str(graph_data)
+
+            # person = input("Enter the person's name: ")
+            prompt = f"""
+        These are the nodes and relationships of the graph:
+        document = {graph_document}
+
+        Provide the hierarchy for the person '{person}'. The hierarchy should trace their position up to the CEO, including all managers and seniors they report to. Format the output as follows:
+
+        His desigination and folowing by Reports to - Name - Desiginamtion and try to indent it with there position.
+
+        Use indentation to reflect the reporting structure. Please ensure the output is clear and organized, without any bold or special formatting.
+        """
+
+            answer = generate_answer_graph(prompt)
+            print(answer)
+        finally:
+            client.close()
+
+    main_fun("Devesh")

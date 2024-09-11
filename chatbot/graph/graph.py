@@ -13,6 +13,7 @@ from nodes.nodes import (
     bad_language,
     video_processing,
     send_email,
+    meeting_shu,
 )
 
 
@@ -29,6 +30,7 @@ def graph():
     workflow.add_node("video_processing", video_processing)
     workflow.add_node("summarize", summarize)
     workflow.add_node("tech_support", tech_support)
+    workflow.add_node("schedule_meeting", meeting_shu)
     workflow.add_node("send_mail", send_email)
     workflow.add_node("route_summarization_usernode", route_summarization_usernode)
 
@@ -43,6 +45,7 @@ def graph():
             "video_processing": "video_processing",
             "tech_support": "tech_support",
             "bad_language": "bad_language",
+            "schedule_meeting": "schedule_meeting",
         },
     )
     workflow.add_edge("neo4j_common_node", "generate")
@@ -52,6 +55,7 @@ def graph():
     workflow.add_edge("tech_support", "send_mail")
     workflow.add_edge("send_mail", END)
     workflow.add_edge("bad_language", END)
+    workflow.add_edge("schedule_meeting", END)
 
     workflow.add_conditional_edges(
         "route_summarization_usernode",
