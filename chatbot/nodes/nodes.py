@@ -65,6 +65,14 @@ def route(state):
     elif state["video"] != None:
         return "video_processing"
 
+    pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
+
+    match = re.match(pattern, state["question"])
+
+    if match:
+        time, date, emails, subject = match.groups()
+        return "schedule_meeting"
+
     question_router = obtain_question_router()
 
     source = question_router.invoke({"question": question})
@@ -366,10 +374,10 @@ def schedule_meeting(state):
     pass
 
 
-def meeting_shu():
+def meeting_shu(state):
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
     TOKEN_FILE = "token.pickle"
-    CREDENTIALS_FILE = "cred.json"
+    CREDENTIALS_FILE = "C:\\Users\\rajku\\OneDrive\\Documents\\ClePro\\HACKATHON\\SIH24_backend\\chatbot\\nodes\\cred.json"
 
     def generate_answer(prompt):
         try:
@@ -547,7 +555,7 @@ def meeting_shu():
     )
 
 
-def hierachy():
+def hierachy(state):
     NEO4J_URI = "neo4j+s://2cbd2ddb.databases.neo4j.io"
     NEO4J_USERNAME = "neo4j"
     NEO4J_PASSWORD = "W_OwGl8HD0XAHkvFoDWf93ZNpyCf-efTsEGcmgLVU_k"
