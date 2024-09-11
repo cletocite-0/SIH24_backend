@@ -12,6 +12,7 @@ import requests
 import pdfplumber
 from io import BytesIO
 import dotenv, os
+import whisper
 
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
@@ -31,6 +32,7 @@ genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Initialize the generative model
 model = genai.GenerativeModel("gemini-pro")
+model_audio = whisper.load_model("base")
 
 
 def route(state):
@@ -271,12 +273,25 @@ def video_processing(state):
     """
     print("---VIDEO PROCESSING---")
     video = state["video"]
+    video_path = f"chatbot/_videos/{video.filename}"
+    output_audio_path = f"chatbot/_audio/{video.filename}.mp3"
 
-    video_loader = YoutubeLoader(video)
-    video_text = video_loader.load_text()
+    # Load the video file
+    video_clip = VideoFileClip(video_path)
 
-    return {"question": state["question"], "documents": video_text}
+    # Extract the audio from the video
+    audio_clip = video_clip.audio
 
+    # Save the extracted audio to a file
+    audio_clip.write_audiofile(output_audio_path)
+
+    # Close the clips
+    audio_clip.close()
+    video_clip.close()
+
+    transcribed_text = model_audio.transcribe("output_audio.mp3")
+
+    return {"question": state["question"], "documents": transcribed_text}
 
 def tech_support(state):
     troubleshooting_prompt = (
