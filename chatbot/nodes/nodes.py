@@ -7,7 +7,6 @@ import google.generativeai as genai
 import pdfplumber
 from io import BytesIO
 import dotenv, os
-import whisper
 
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
@@ -197,6 +196,8 @@ def generate(state):
     **Question**: {state['question']}
 
     **Answer**:
+
+    Return your answer in markdown format (bold,italics,underline) as required
     """
     response = model.generate_content(prompt)
 
@@ -300,8 +301,9 @@ def tech_support(state):
 
     output = model.generate_content(troubleshooting_prompt)
     response = output.parts[0].text
+    
 
-    return {"generation": response + "Would you like to escalate this issue?"}
+    return {"generation": response}
 
 
 def send_email(state):
@@ -340,4 +342,4 @@ def send_email(state):
     except Exception as e:
         print(f"Failed to send email. Error: {e}")
 
-    return {"generation": "Email sent successfully."}
+    return {"generation": state['generation'] + "\n\n ## Sending mail to escalate issue"}
