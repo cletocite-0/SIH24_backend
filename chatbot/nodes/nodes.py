@@ -197,6 +197,10 @@ def generate(state):
     **Question**: {state['question']}
 
     **Answer**:
+
+    Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
+    Use as much markdown as possible to format your response.
+    Use ## for headings and ``` code blocks for code.```
     """
     response = model.generate_content(prompt)
 
@@ -343,4 +347,8 @@ def send_email(state):
     except Exception as e:
         print(f"Failed to send email. Error: {e}")
 
-    return {"generation": "Email sent successfully."}
+    return {"generation": state["generation"]}
+
+
+def schedule_meeting(state):
+    pass
