@@ -12,6 +12,7 @@ from nodes.nodes import (
     route_summarization_usernode,
     bad_language,
     video_processing,
+    send_email,
 )
 
 
@@ -28,6 +29,7 @@ def graph():
     workflow.add_node("video_processing", video_processing)
     workflow.add_node("summarize", summarize)
     workflow.add_node("tech_support", tech_support)
+    workflow.add_node("send_mail", send_email)
     workflow.add_node("route_summarization_usernode", route_summarization_usernode)
 
     # Build graph
@@ -47,7 +49,8 @@ def graph():
     workflow.add_edge("neo4j_user_node", "generate")
     workflow.add_edge("video_processing", "update_knowledge_graph")
     workflow.add_edge("update_knowledge_graph", "route_summarization_usernode")
-    workflow.add_edge("tech_support", END)
+    workflow.add_edge("tech_support", "send_mail")
+    workflow.add_edge("send_mail", END)
     workflow.add_edge("bad_language", END)
 
     workflow.add_conditional_edges(

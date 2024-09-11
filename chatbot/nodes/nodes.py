@@ -1,14 +1,9 @@
 from email.mime.text import MIMEText
 import smtplib
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from langchain_community.document_loaders import YoutubeLoader
 from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
-from neo4j import GraphDatabase
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import google.generativeai as genai
-import requests
 import pdfplumber
 from io import BytesIO
 import dotenv, os
@@ -18,6 +13,10 @@ from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
 from models.route_summ_query import obtain_summ_usernode_router
 
+import whisper
+from moviepy.editor import VideoFileClip
+
+model_audio = whisper.load_model("small")
 
 from utils.utils import (
     get_jina_embeddings,
@@ -299,28 +298,29 @@ def tech_support(state):
         f"Format your response with clear instructions, starting with 'Please try the following troubleshooting steps:'"
     )
 
-    response = model.generate_content(troubleshooting_prompt)
+    output = model.generate_content(troubleshooting_prompt)
+    response = output.parts[0].text
 
-    return {"generation": response.parts[0].text}
+    return {"generation": response + "Would you like to escalate this issue?"}
 
 
-def send_email(state, support_type, priority, issue_description, troubleshooting_steps):
+def send_email(state):
     sender_email = "cletocite@gmail.com"
     receiver_email = "cletocite.techs@gmail.com"
     sender_password = "dxkbhzyaqaqcgrrq"  # App password or your email password
 
     ticket_id = generate_ticket_id()
 
-    subject = f"TECH SUPPORT - {support_type} - {ticket_id}"
+    subject = f"TECH SUPPORT - TROUBLESHOOT - {ticket_id}"
     body = (
         f"Dear Tech Support Team,\n\n"
         f"Please find the details of the tech support request below:\n\n"
         f"User ID: {state['user_id']}\n"
         f"Ticket ID: {ticket_id}\n"
-        f"Priority: {priority}\n\n"
-        f"Support Type: {support_type}\n"
-        f"Issue Description: {issue_description}\n\n"
-        f"Troubleshooting Steps Taken:\n{troubleshooting_steps}\n\n"
+        # f"Priority: {priority}\n\n"
+        # f"Support Type: {support_type}\n"
+        # f"Issue Description: {issue_description}\n\n"
+        f"Troubleshooting Steps Taken:\n{state['generation']}\n\n"
         f"Please review the provided information and take the necessary actions.\n\n"
         f"Thank you,\n"
         f"Tech Support Bot"
@@ -340,10 +340,4 @@ def send_email(state, support_type, priority, issue_description, troubleshooting
     except Exception as e:
         print(f"Failed to send email. Error: {e}")
 
-
-def review_generation(state):
-    pass
-
-
-def regenerate():
-    pass
+    return {"generation": "Email sent successfully."}
