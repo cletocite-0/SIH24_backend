@@ -29,11 +29,18 @@ app.add_middleware(
 )
 
 # MySQL configuration
+# db_config = {
+#     'user': 'root',
+#     'password': 'CowTheGreat',
+#     'host': 'localhost',
+#     'database': 'sih'
+# }
+
 db_config = {
-    'user': 'root',
-    'password': 'CowTheGreat',
-    'host': 'localhost',
-    'database': 'sih'
+    'user': 'unfnny1o9zn09z9a',
+    'password': 'Yzfw1C8GG1k0H4w0aiEb',
+    'host': 'b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com',
+    'database': 'b1urg5hqy4fizvsrfabz'
 }
 
 # Create a database connection
@@ -192,7 +199,7 @@ async def update_session_title(request: UpdateSessionTitleRequest):
     try:
         # Update the session title in the database
         update_query = "UPDATE messages SET session_title = %s WHERE session_id = %s"
-        cursor.execute(update_query, (request.new_title, request.session_id))
+        cursor.execute(update_query, (request.new_title, 1))
         connection.commit()
 
     except mysql.connector.Error as err:
