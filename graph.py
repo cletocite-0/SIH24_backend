@@ -11,7 +11,7 @@ import uuid
 # Configure Firebase
 FIREBASE_CREDENTIALS_PATH = 'firebase_cred.json'
 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-firebase_admin.initialize_app(cred, {'storageBucket': 'store-graph.appspot.com'})
+firebase_admin.initialize_app(cred, {'storageBucket': 'host-graph-image.appspot.com'})
 bucket = storage.bucket()
 
 # Configure Gemini with API Key
@@ -104,7 +104,7 @@ def upload_to_firebase(file_path, bucket_name):
 
 # Step 5: Main function to orchestrate everything
 def main():
-    pdf_path = "meeting.pdf"
+    pdf_path = "pdf/meeting.pdf"
     user_query = input("Describe the type of graph you want: ")
     
     # Define the save directory and filename
