@@ -9,7 +9,7 @@ from firebase_admin import credentials, storage
 import uuid 
 
 # Configure Firebase
-FIREBASE_CREDENTIALS_PATH = 'firebase_cred.json'
+FIREBASE_CREDENTIALS_PATH = 'F:\\SIH_Work_emb_flaskconnect\\backend\\firebase_cred.json' #ask me the file i will share it later
 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
 firebase_admin.initialize_app(cred, {'storageBucket': 'host-graph-image.appspot.com'})
 bucket = storage.bucket()
@@ -49,10 +49,13 @@ def send_to_gemini(pdf_text, user_query, save_dir, file_name):
     # Use Gemini API to get graph generation instructions
     model = genai.GenerativeModel('gemini-pro')
     response = model.generate_content(prompt)
-    desc_promt = f'''
-    {response} this is the response give me only a 3 line description that talks about the graph data in breif
-    '''
-    desc_response = model.generate_content(desc_promt).text.strip()
+    desc_prompt = f'''
+    Summarize the following response in 3 sentences, highlighting key insights from the graph data. 
+    Ensure there is no mention of "The graph is saved as an image file named 'output_graph.png' in the 'graph_img' directory." is excluded.
+    This is the input text: {pdf_text}
+    This is the Response: {response}
+'''
+    desc_response = model.generate_content(desc_prompt).text.strip()
         
     
     # Extract the code part (clean response)
@@ -104,7 +107,7 @@ def upload_to_firebase(file_path, bucket_name):
 
 # Step 5: Main function to orchestrate everything
 def main():
-    pdf_path = "pdf/meeting.pdf"
+    pdf_path = "meeting.pdf"
     user_query = input("Describe the type of graph you want: ")
     
     # Define the save directory and filename
