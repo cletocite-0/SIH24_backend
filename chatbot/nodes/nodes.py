@@ -42,6 +42,7 @@ genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Initialize the generative model
 model = genai.GenerativeModel("gemini-pro")
+model_audio = whisper.load_model("base")
 
 
 def chatbot(state):
@@ -297,10 +298,8 @@ def video_processing(state):
     """
     print("---VIDEO PROCESSING---")
     video = state["video"]
-    audio_filename = video.filename[:-4]
-    # video_path = f"../_videos/{video.filename}"
-    video_path = f"C:/Users/rajku/OneDrive/Documents/ClePro/HACKATHON/SIH24_backend/chatbot/_videos/{video.filename}"
-    output_audio_path = f"C:/Users/rajku/OneDrive/Documents/ClePro/HACKATHON/SIH24_backend/chatbot/_audio/"
+    video_path = f"chatbot/_videos/{video.filename}"
+    output_audio_path = f"chatbot/_audio/{video.filename}.mp3"
 
     # Load the video file
     video_clip = VideoFileClip(video_path)
@@ -309,7 +308,7 @@ def video_processing(state):
     audio_clip = video_clip.audio
 
     # Save the extracted audio to a file
-    audio_clip.write_audiofile(output_audio_path, codec="mp3")
+    audio_clip.write_audiofile(output_audio_path)
 
     # Close the clips
     audio_clip.close()
@@ -329,7 +328,7 @@ def tech_support(state):
     output = model.generate_content(troubleshooting_prompt)
     response = output.parts[0].text
 
-    return {"generation": response + "Would you like to escalate this issue?"}
+    return {"generation": response}
 
 
 def send_email(state):
