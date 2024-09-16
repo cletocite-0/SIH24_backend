@@ -43,7 +43,10 @@ genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 # Initialize the generative model
 model = genai.GenerativeModel("gemini-pro")
 
-global response
+
+def chatbot(state):
+    print("---CHATBOT--- or ---RAG---")
+    question = state["question"]
 
 
 def route(state):
@@ -159,8 +162,6 @@ def neo4j_user_node(state):
     query_embedding = get_jina_embeddings([query])[0]
 
     documents = get_relevant_context(query_embedding, "user", user_id)
-
-    print(documents)
 
     return {"documents": documents, "question": query}
 

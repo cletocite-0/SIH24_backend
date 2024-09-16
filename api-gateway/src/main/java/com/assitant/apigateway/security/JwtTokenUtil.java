@@ -50,7 +50,7 @@ public class JwtTokenUtil {
 
 	public String generateToken(String userId) throws URISyntaxException, UnsupportedEncodingException {
     // Fetch user details from user service
-    final String baseUrl = appConfig.getUserServiceURL() + "/email?emailId=" + URLEncoder.encode(userId, StandardCharsets.UTF_8.toString());
+    final String baseUrl = appConfig.getIdentityServiceURL() + "/email?emailId=" + URLEncoder.encode(userId, StandardCharsets.UTF_8.toString());
     URI uri = new URI(baseUrl);
     RestTemplate restTemplate = new RestTemplate();
     ResponseEntity<ResponseDTO> responseEntity = restTemplate.getForEntity(uri, ResponseDTO.class);

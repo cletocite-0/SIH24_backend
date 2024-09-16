@@ -7,31 +7,23 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties("jwt")
 public class JwtConfig {
 
-    private String secret;
-    private long accessValidity; // Validity for access token
-    private long refreshValidity; // Validity for refresh token
+	private String secret;
+	private long validity;
 
-    public void setSecret(String secret) {
-        this.secret = secret;
-    }
+	public void setSecret(String secret) {
+		this.secret = secret;
+	}
 
-    public void setAccessValidity(long accessValidity) {
-        this.accessValidity = accessValidity;
-    }
+	public void setValidity(long validity) {
+		this.validity = validity;
+	}
 
-    public void setRefreshValidity(long refreshValidity) {
-        this.refreshValidity = refreshValidity;
-    }
+	public String getSecret() {
+		return secret;
+	}
 
-    public String getSecret() {
-        return secret;
-    }
+	public long getValidity() {
+		return validity;
+	}
 
-    public long getAccessValidity() {
-        return accessValidity;
-    }
-
-    public long getRefreshValidity() {
-        return refreshValidity;
-    }
 }
