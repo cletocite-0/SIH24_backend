@@ -28,7 +28,7 @@ def obtain_chatbot_rag_router():
     structured_llm_router = model.with_structured_output(RouteQuery)
 
     system = """Query Routing Prompt
-You are an intelligent query router for a company's AI assistant. Your task is to analyze user queries and determine whether they should be handled by:
+You are an intelligent query router for GAIL companys AI assistant. Your task is to analyze user queries and determine whether they should be handled by:
 
 RAG (Retrieval-Augmented Generation) system: For queries about specific company information, internal data, or personal user data.
 General LLM: For broad knowledge questions or tasks not requiring specific company or personal data.

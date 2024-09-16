@@ -2,6 +2,7 @@ from email.mime.text import MIMEText
 import smtplib
 from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
+from langchain_groq import ChatGroq
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 from neo4j import GraphDatabase
@@ -20,6 +21,7 @@ import re
 import os
 import pickle
 import time
+
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
 from models.route_summ_query import obtain_summ_usernode_router
@@ -54,15 +56,34 @@ def chatbot_rag_router(state):
     source = question_router.invoke({"question": question})
     if source.datasource == "rag":
         print("---RAG---")
-        return "route"
+        return {"next": "route", "question": question}
     elif source.datasource == "chatbot":
         print("---CHATBOT---")
-        return "chatbot"
+        return {"next": "chatbot", "question": question}
 
 
-def chatbot(state):
-    response = model.generate_content(state["question"])
-    return {"generation": response.parts[0].text}
+async def chatbot(state):
+    # response = model.generate_content(state["question"], stream=True)
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
+    print("\n\n")
+    response = await model.ainvoke(state["question"])
+    return {"generation": response}
+
+
+def check_uploads(state):
+    question = state["question"]
+    print("---CHECK FOR UPLOADS---")
+    if state["pdf"] != None:
+        return "update_knowledge_graph"
+    elif state["video"] != None:
+        return "video_processing"
+    else:
+        return "chatbot_rag_router"
 
 
 def route(state):
@@ -78,11 +99,6 @@ def route(state):
 
     print("---ROUTE QUESTION---")
     question = state["question"]
-
-    if state["pdf"] != None:
-        return "update_knowledge_graph"
-    elif state["video"] != None:
-        return "video_processing"
 
     pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
 
@@ -313,7 +329,7 @@ def video_processing(state):
     """
     print("---VIDEO PROCESSING---")
     video = state["video"]
-    video_path = f"chatbot/_videos/{video.filename}"
+    video_path = f"./_videos/{video.filename}"
     output_audio_path = f"chatbot/_audio/{video.filename}.mp3"
 
     # Load the video file

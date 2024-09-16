@@ -48,27 +48,58 @@ async def query(
 
         print(f"Video content received and saved to {video_path}.")
 
-    for output in graph_app.stream(
+    config = {"configurable": {"thread_id": "2"}}
+    # output = graph_app.invoke(
+    #     {
+    #         "user_id": user_id,
+    #         "question": question,
+    #         "pdf": pdf,
+    #         "video": video,
+    #     },
+    #     config=config,
+    # )
+
+    async for event in graph_app.astream_events(
         {
             "user_id": user_id,
             "question": question,
             "pdf": pdf,
             "video": video,
-        }
+        },
+        version="v1",
+        config=config,
     ):
-        for key, value in output.items():
-            # Node
-            pprint(f"Node '{key}':")
-            # Optional: print full state at each node
-            # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
+        # kind = event.get("event")
+        # if kind == "on_chat_stream":
+        #     print(event)
+        if event["event"] == "on_chat_model_stream":
+            print(event["data"]["chunk"].content)
 
-        pprint("\n---\n")
-        print("\n")
+    # for output in graph_app.stream(
+    #     {
+    #         "user_id": user_id,
+    #         "question": question,
+    #         "pdf": pdf,
+    #         "video": video,
+    #     }
+    # ):
+    #     print(output)
+    #     for key, value in output.items():
+    #         # Node
+    #         pprint(f"Node '{key}':")
+    #         # Optional: print full state at each node
+    #         # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
 
-    # Final generation
-    pprint(value["generation"])
+    #     pprint("\n---\n")
+    #     print("\n")
 
-    return {"generation": value["generation"]}
+    # # Final generation
+    # pprint(value["generation"])
+
+    # return {"generation": value["generation"]}
+
+    # print(output)
+    # return {"generation": output["generation"]}
 
 
 if __name__ == "__main__":

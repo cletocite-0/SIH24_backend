@@ -1,4 +1,5 @@
 from langgraph.graph import END, StateGraph, START
+from langgraph.checkpoint.memory import MemorySaver
 
 from state.state import GraphState
 from nodes.nodes import (
@@ -16,11 +17,15 @@ from nodes.nodes import (
     meeting_shu,
     chatbot,
     chatbot_rag_router,
+    check_uploads,
 )
 
 
 def graph():
     workflow = StateGraph(GraphState)
+
+    # config = {"thread_id": "abc1"}
+    memory = MemorySaver()
 
     # Define the nodes
 
@@ -37,11 +42,21 @@ def graph():
     workflow.add_node("schedule_meeting", meeting_shu)
     workflow.add_node("send_mail", send_email)
     workflow.add_node("route_summarization_usernode", route_summarization_usernode)
+    workflow.add_node("chatbot_rag_router", chatbot_rag_router)
 
     # Build graph
     workflow.add_conditional_edges(
         START,
-        chatbot_rag_router,
+        check_uploads,
+        {
+            "update_knowledge_graph": "update_knowledge_graph",
+            "video_processing": "video_processing",
+            "chatbot_rag_router": "chatbot_rag_router",
+        },
+    )
+    workflow.add_conditional_edges(
+        "chatbot_rag_router",
+        lambda x: x["next"],
         {"route": "route", "chatbot": "chatbot"},
     )
     workflow.add_conditional_edges(
@@ -50,8 +65,6 @@ def graph():
         {
             "common_node": "neo4j_common_node",
             "user_node": "neo4j_user_node",
-            "update_knowledge_graph": "update_knowledge_graph",
-            "video_processing": "video_processing",
             "tech_support": "tech_support",
             "bad_language": "bad_language",
             "schedule_meeting": "schedule_meeting",
@@ -79,6 +92,6 @@ def graph():
     # workflow.set_finish_point("send_mail")
 
     # Compile
-    graph = workflow.compile()
+    graph = workflow.compile(checkpointer=memory)
 
     return graph
