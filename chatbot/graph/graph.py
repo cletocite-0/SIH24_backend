@@ -14,6 +14,8 @@ from nodes.nodes import (
     video_processing,
     send_email,
     meeting_shu,
+    chatbot,
+    chatbot_rag_router,
 )
 
 
@@ -23,9 +25,11 @@ def graph():
     # Define the nodes
 
     workflow.add_node("update_knowledge_graph", update_knowledge_graph)  # pdf-email
+    workflow.add_node("route", route)  # route
     workflow.add_node("neo4j_user_node", neo4j_user_node)  # neo4j_user_node
     workflow.add_node("neo4j_common_node", neo4j_common_node)  # neo4j_common_node
     workflow.add_node("generate", generate)
+    workflow.add_node("chatbot", chatbot)
     workflow.add_node("bad_language", bad_language)
     workflow.add_node("video_processing", video_processing)
     workflow.add_node("summarize", summarize)
@@ -37,7 +41,12 @@ def graph():
     # Build graph
     workflow.add_conditional_edges(
         START,
-        route,
+        chatbot_rag_router,
+        {"route": "route", "chatbot": "chatbot"},
+    )
+    workflow.add_conditional_edges(
+        "route",
+        lambda x: x["next"],
         {
             "common_node": "neo4j_common_node",
             "user_node": "neo4j_user_node",
@@ -56,6 +65,7 @@ def graph():
     workflow.add_edge("send_mail", END)
     workflow.add_edge("bad_language", END)
     workflow.add_edge("schedule_meeting", END)
+    workflow.add_edge("chatbot", END)
 
     workflow.add_conditional_edges(
         "route_summarization_usernode",

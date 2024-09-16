@@ -23,11 +23,10 @@ import time
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
 from models.route_summ_query import obtain_summ_usernode_router
+from models.chatbot_or_rag import obtain_chatbot_rag_router
 
 import whisper
 from moviepy.editor import VideoFileClip
-
-model_audio = whisper.load_model("small")
 
 from utils.utils import (
     get_jina_embeddings,
@@ -38,16 +37,32 @@ from utils.utils import (
 
 dotenv.load_dotenv()
 
+model_audio = whisper.load_model("small")
+
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Initialize the generative model
 model = genai.GenerativeModel("gemini-pro")
-model_audio = whisper.load_model("base")
+
+
+def chatbot_rag_router(state):
+    print("---CHATBOT--- or ---RAG---")
+    question = state["question"]
+
+    question_router = obtain_chatbot_rag_router()
+
+    source = question_router.invoke({"question": question})
+    if source.datasource == "rag":
+        print("---RAG---")
+        return "route"
+    elif source.datasource == "chatbot":
+        print("---CHATBOT---")
+        return "chatbot"
 
 
 def chatbot(state):
-    print("---CHATBOT--- or ---RAG---")
-    question = state["question"]
+    response = model.generate_content(state["question"])
+    return {"generation": response.parts[0].text}
 
 
 def route(state):
@@ -82,16 +97,16 @@ def route(state):
     source = question_router.invoke({"question": question})
     if source.datasource == "user_node":
         print("---ROUTE QUERY TO USER NODE IN NEO4J---")
-        return "user_node"
+        return {"next": "user_node", "question": question}
     elif source.datasource == "common_node":
         print("---ROUTE QUERY TO COMMON NODE IN NEO4J---")
-        return "common_node"
+        return {"next": "common_node", "question": question}
     elif source.datasource == "tech_support":
         print("---ROUTE QUERY TO TECH SUPPORT---")
-        return "tech_support"
+        return {"next": "tech_support", "question": question}
     elif source.datasource == "bad_language":
         print("---ROUTE QUERY TO BAD LANGUAGE NODE---")
-        return "bad_language"
+        return {"next": "bad_language", "question": question}
 
 
 def bad_language(state):
