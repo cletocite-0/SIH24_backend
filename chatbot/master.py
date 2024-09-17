@@ -241,9 +241,15 @@ async def receive_message(
             # Print the final bot reply after streaming is done
             # print("Final bot reply:", bot_reply)
 
-            # bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-            # cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
-            # connection.commit()
+            connection = get_db_connection()
+            cursor = connection.cursor()
+
+            bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
+            cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
+            connection.commit()
+
+
+
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -362,6 +368,30 @@ async def submit_data(
 
     return response_message
 
+    # Search for session titles based on a query string
+@app.get("/search/")
+async def search_session_titles(query: str = Query(..., min_length=1)):
+    connection = get_db_connection()
+    if not connection:
+        raise HTTPException(status_code=500, detail="Failed to connect to the database")
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        # SQL Query to find session titles that contain the search term
+        search_query = "SELECT DISTINCT session_title FROM messages WHERE text LIKE %s"
+        cursor.execute(search_query, (f"%{query}%",))
+        sessions = cursor.fetchall()
+
+        if not sessions:
+            return {"message": "No sessions found."}
+
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"sessions": [session['session_title'] for session in sessions]}
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
