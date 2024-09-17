@@ -11,7 +11,6 @@ from nodes.nodes import (
     update_knowledge_graph,
     tech_support,
     route_summarization_usernode,
-    bad_language,
     video_processing,
     send_email,
     meeting_shu,
@@ -19,6 +18,7 @@ from nodes.nodes import (
     chatbot_rag_router,
     check_uploads,
     generate_image_graph,
+    hierachy,
 )
 
 
@@ -44,6 +44,7 @@ def graph():
     workflow.add_node("route_summarization_usernode", route_summarization_usernode)
     workflow.add_node("chatbot_rag_router", chatbot_rag_router)
     workflow.add_node("generate_image_graph", generate_image_graph)
+    workflow.add_node("hierachy", hierachy)
 
     # Build graph
     workflow.add_conditional_edges(
@@ -68,6 +69,7 @@ def graph():
             "user_node": "neo4j_user_node",
             "tech_support": "tech_support",
             "schedule_meeting": "schedule_meeting",
+            "hierachy": "hierachy",
         },
     )
     workflow.add_edge("neo4j_common_node", "generate")
@@ -75,6 +77,7 @@ def graph():
     workflow.add_edge("video_processing", "update_knowledge_graph")
     workflow.add_edge("update_knowledge_graph", "route_summarization_usernode")
     workflow.add_edge("tech_support", "send_mail")
+    workflow.add_edge("hierachy", END)
     workflow.add_edge("send_mail", END)
     workflow.add_edge("generate_image_graph", END)
     workflow.add_edge("schedule_meeting", END)

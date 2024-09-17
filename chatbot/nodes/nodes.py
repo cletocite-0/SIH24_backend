@@ -138,22 +138,9 @@ def route(state):
     elif source.datasource == "schedule_meeting":
         print("---ROUTE QUERY TO SCHEDULE MEETING NODE---")
         return {"next": "schedule_meeting", "question": question}
-
-
-def bad_language(state):
-    """
-    Route question to bad language node.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        str: Next node to call
-    """
-    print("---BAD LANGUAGE NODE---")
-    return {
-        "generation": "The question contains offensive language. Please rephrase your query."
-    }
+    elif source.datasource == "hierachy":
+        print("---ROUTE QUERY TO HIERACHY NODE---")
+        return {"next": "hierachy", "question": question}
 
 
 def route_summarization_usernode(state):
@@ -592,9 +579,8 @@ def meeting_shu(state):
         else:
             print("Failed to extract meeting details.")
 
-    main_fun(
-        "Schedule meeting @10:30 AM 10/09/2024 with gowsrini2004@gmail.com,idhikaprabakaran@gmail.com, forfungowtham@gmail.com, cowara987@gmail.com about SIH INTERNAL HACAKTHON"
-    )
+    main_fun(state["question"])
+    return {"generation": "Meeting scheduled successfully."}
 
 
 def hierachy(state):
@@ -629,7 +615,7 @@ def hierachy(state):
         response = model.generate_content(prompt)
         return response.text
 
-    def main_fun(person):
+    def main_fun_hierachy(person):
         client = Neo4jClient(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
         try:
             graph_data = client.fetch_graph_data()
@@ -650,8 +636,11 @@ def hierachy(state):
 
             answer = generate_answer_graph(prompt)
             print(answer)
+            return {"generation": answer}
         finally:
             client.close()
+
+    return main_fun_hierachy(state["question"])
 
 
 def generate_image_graph(state):

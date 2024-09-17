@@ -69,9 +69,8 @@ async def query(
                 output += event["data"]["chunk"].content
                 print(output)
     except Exception as e:
-        print(f"Error during streaming: {str(e)}")
+        print(f"Error during streaming:\n\n {str(e)}")
         print(e)
-    print(output)
 
     # for output in graph_app.stream(
     #     {

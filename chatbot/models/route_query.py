@@ -14,10 +14,10 @@ class RouteQuery(BaseModel):
     """Route a user query to the most relevant datasource."""
 
     datasource: Literal[
-        "common_node", "user_node", "tech_support", "schedule_meeting"
+        "common_node", "user_node", "tech_support", "schedule_meeting", "hierachy"
     ] = Field(
         ...,
-        description="Given a user query route to either common node or current user node in knowledge graph or route question to tech_support node incase of a support related query or route it to schedule_meeting node incase of a meeting schedule request",
+        description="Given a user query route to either common node or current user node in knowledge graph or route question to tech_support node incase of a support related query or route it to schedule_meeting node incase of a meeting schedule request or route it to hierachy node incase of a hierachy related query",
     )
 
 
@@ -57,7 +57,12 @@ Follow these guidelines to make your decision:
 - The query is a request to schedule a meeting with a specific user or team.
 - The question involves setting up a meeting, rescheduling, or canceling a meeting.
 
-In this case, your response should be:
+### Route to "hierachy" if:
+- The query is about the company's organizational structure, reporting lines, or team hierarchy.
+- the query is related to persons hierarchy in the company.
+
+In case of offensive language 
+your response should be:
 **"We do not support this behavior. Please avoid using offensive or inappropriate language."**
 
 ### Examples:
