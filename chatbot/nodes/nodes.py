@@ -100,13 +100,13 @@ def route(state):
     print("---ROUTE QUESTION---")
     question = state["question"]
 
-    pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
+    # pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
 
-    match = re.match(pattern, state["question"])
+    # match = re.match(pattern, state["question"])
 
-    if match:
-        time, date, emails, subject = match.groups()
-        return "schedule_meeting"
+    # if match:
+    #     time, date, emails, subject = match.groups()
+    #     return "schedule_meeting"
 
     question_router = obtain_question_router()
 
@@ -120,9 +120,9 @@ def route(state):
     elif source.datasource == "tech_support":
         print("---ROUTE QUERY TO TECH SUPPORT---")
         return {"next": "tech_support", "question": question}
-    elif source.datasource == "bad_language":
-        print("---ROUTE QUERY TO BAD LANGUAGE NODE---")
-        return {"next": "bad_language", "question": question}
+    elif source.datasource == "schedule_meeting":
+        print("---ROUTE QUERY TO SCHEDULE MEETING NODE---")
+        return {"next": "schedule_meeting", "question": question}
 
 
 def bad_language(state):
@@ -216,7 +216,7 @@ def neo4j_common_node(state):
     return {"documents": documents, "question": query}
 
 
-def generate(state):
+async def generate(state):
     """
     Generate answer from retrieved documentation.
 
@@ -227,8 +227,6 @@ def generate(state):
         state (dict): New key added to state, generation, that contains LLM generation
     """
     print("---GENERATE---")
-    question = state["question"]
-    documents = state["documents"]
 
     # rag_chain = obtain_rag_chain()
     # # RAG generation
@@ -255,13 +253,15 @@ def generate(state):
     Use as much markdown as possible to format your response.
     Use ## for headings and ``` code blocks for code.```
     """
-    response = model.generate_content(prompt)
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
 
-    return {
-        "documents": documents,
-        "question": question,
-        "generation": response.parts[0].text,
-    }
+    response = await model.ainvoke(prompt)
+    return {"generation": response}
 
 
 def summarize(state):
@@ -276,13 +276,16 @@ def summarize(state):
     """
     print("---SUMMARIZE---")
     documents = []
-    file_path = f"_files/{state['pdf'].filename}"
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            raw_text = page.extract_text()
-            if raw_text:
-                document = Document(page_content=raw_text)
-                documents.append(document)
+    if state["pdf"]:
+        file_path = state["pdf"]
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                raw_text = page.extract_text()
+                if raw_text:
+                    document = Document(page_content=raw_text)
+                    documents.append(document)
+    else:
+        documents = state["documents"]
 
     return {"question": state["question"], "documents": documents}
 
@@ -292,14 +295,17 @@ def update_knowledge_graph(state):
     # pdf_file = BytesIO(state["pdf"])
     print("---UPDATE KNOWLEDGE GRAPH---")
     # Process the PDF
-    documents = []
-    file_path = f"_files/{state['pdf'].filename}"
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            raw_text = page.extract_text()
-            if raw_text:
-                document = Document(page_content=raw_text)
-                documents.append(document)
+    if state["pdf"]:
+        documents = []
+        file_path = state["pdf"]
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                raw_text = page.extract_text()
+                if raw_text:
+                    document = Document(page_content=raw_text)
+                    documents.append(document)
+    else:
+        documents = state["documents"]
 
     # Split document
     text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=80)
@@ -328,10 +334,13 @@ def video_processing(state):
         state (dict): Updated state with video key
     """
     print("---VIDEO PROCESSING---")
-    video = state["video"]
-    video_path = f"./_videos/{video.filename}"
-    output_audio_path = f"chatbot/_audio/{video.filename}.mp3"
+    # video = state["video"]
+    # video_path = f"_videos/{video.filename}"
+    # audio = state["video"].filename[:-4] + ".mp3"
+    # output_audio_path = f"_audio/{audio}"
 
+    video_path = state["video"]
+    output_audio_path = "_audio/output_audio.mp3"
     # Load the video file
     video_clip = VideoFileClip(video_path)
 
@@ -345,7 +354,9 @@ def video_processing(state):
     audio_clip.close()
     video_clip.close()
 
-    transcribed_text = model_audio.transcribe("output_audio.mp3")
+    print("STARTING")
+    transcribed_text = model_audio.transcribe("_audio/output_audio.mp3")
+    print("TRANSCRIBED")
 
     return {"question": state["question"], "documents": transcribed_text}
 
@@ -641,5 +652,3 @@ def hierachy(state):
             print(answer)
         finally:
             client.close()
-
-    main_fun("Devesh")

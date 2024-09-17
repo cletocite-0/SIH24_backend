@@ -30,7 +30,7 @@ def obtain_chatbot_rag_router():
     system = """Query Routing Prompt
 You are an intelligent query router for GAIL companys AI assistant. Your task is to analyze user queries and determine whether they should be handled by:
 
-RAG (Retrieval-Augmented Generation) system: For queries about specific company information, internal data, or personal user data.
+RAG (Retrieval-Augmented Generation) system: For queries about specific company information, internal data,reporting chains (heirarchy), meeting scheduling  or personal user data.
 General LLM: For broad knowledge questions or tasks not requiring specific company or personal data.
 
 Instructions:

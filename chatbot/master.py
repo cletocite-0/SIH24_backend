@@ -15,8 +15,8 @@ from graph.graph import graph
 app = FastAPI()
 
 # Create directories if not exist
-os.makedirs('files', exist_ok=True)
-os.makedirs('videos', exist_ok=True)
+os.makedirs("files", exist_ok=True)
+os.makedirs("videos", exist_ok=True)
 
 # CORS configuration
 origins = ["http://localhost:5173"]
@@ -37,15 +37,17 @@ app.add_middleware(
 # }
 
 db_config = {
-    'user': 'unfnny1o9zn09z9a',
-    'password': 'Yzfw1C8GG1k0H4w0aiEb',
-    'host': 'b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com',
-    'database': 'b1urg5hqy4fizvsrfabz'
+    "user": "unfnny1o9zn09z9a",
+    "password": "Yzfw1C8GG1k0H4w0aiEb",
+    "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
+    "database": "b1urg5hqy4fizvsrfabz",
 }
+
 
 # Create a database connection
 def get_db_connection():
     return mysql.connector.connect(**db_config)
+
 
 # Pydantic models
 # class MessageRequest(BaseModel):
@@ -53,15 +55,18 @@ def get_db_connection():
 #     session_title: str = "Default Title"
 #     query: str
 
+
 class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
+
 
 # Route to generate a new session ID
 @app.get("/session")
 async def generate_session():
     session_id = str(uuid.uuid4())
     return {"session_id": session_id}
+
 
 # Route to handle incoming messages and bot response
 class QueryRequest(BaseModel):
@@ -74,16 +79,18 @@ class QueryRequest(BaseModel):
 
 
 @app.post("/query")
-async def receive_message(user_id: str = Form(...),
+async def receive_message(
+    user_id: str = Form(...),
     question: str = Form(...),
     pdf: Optional[UploadFile] = File(None),
-    video: Optional[UploadFile] = File(None)):
+    video: Optional[UploadFile] = File(None),
+):
     print("query recived")
     connection = get_db_connection()
 
     # session title
     booltitle = 1
-    if(booltitle):
+    if booltitle:
         booltitle = 0
         session_tit = question[0:15]
 
@@ -95,13 +102,13 @@ async def receive_message(user_id: str = Form(...),
 
         # Insert the user's message into the database
         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(user_message_query, ("1", session_tit, 'user', question))
+        cursor.execute(user_message_query, ("1", session_tit, "user", question))
         connection.commit()
         print("DB UPDATED")
         # Dummy bot response (you can replace this with AI response logic)
         graph_app = graph()
         print("GRAPH COMPILED")
-    # Access the uploaded files
+        # Access the uploaded files
         filename = Optional[str]
         if pdf:
             file_path = os.path.join("_files", pdf.filename)
@@ -120,14 +127,15 @@ async def receive_message(user_id: str = Form(...),
                 f.write(content)  # Write the video content to the defined path
 
             print(f"Video content received and saved to {video_path}.")
-
+        config = {"configurable": {"thread_id": "2"}}
         for output in graph_app.stream(
             {
                 "user_id": user_id,
                 "question": question,
                 "pdf": pdf,
                 "video": video,
-            }
+            },
+            config=config,
         ):
             for key, value in output.items():
                 # Node
@@ -137,13 +145,13 @@ async def receive_message(user_id: str = Form(...),
             pprint("\n---\n")
             print("\n")
 
-    # Final generation
+        # Final generation
         pprint(value["generation"])
         bot_reply = value["generation"]
 
         # Insert the bot's response into the database
         bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
+        cursor.execute(bot_message_query, ("1", session_tit, "bot", bot_reply))
         connection.commit()
 
     except mysql.connector.Error as e:
@@ -154,20 +162,22 @@ async def receive_message(user_id: str = Form(...),
 
     return {"answer": bot_reply}
 
+
 @app.get("/messages/{session_id}")
 async def fetch_messages(session_id: str):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
     # Retrieve all messages for the session
-    cursor.execute("SELECT sender, text FROM messages WHERE session_id = %s", (session_id,))
+    cursor.execute(
+        "SELECT sender, text FROM messages WHERE session_id = %s", (session_id,)
+    )
     messages = cursor.fetchall()
 
     cursor.close()
     connection.close()
 
     return {"messages": messages}
-
 
 
 @app.get("/sessions")
@@ -190,6 +200,7 @@ async def fetch_unique_sessions():
 
     return {"sessions": sessions}
 
+
 # Route to update session title
 @app.put("/update-session-title")
 async def update_session_title(request: UpdateSessionTitleRequest):
@@ -203,12 +214,15 @@ async def update_session_title(request: UpdateSessionTitleRequest):
         connection.commit()
 
     except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=f"Error updating session title: {err}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating session title: {err}"
+        )
     finally:
         cursor.close()
         connection.close()
 
     return {"message": "Session title updated successfully"}
+
 
 # Route to fetch messages by session title
 @app.get("/messages/title/{session_title}")
@@ -217,7 +231,10 @@ async def fetch_messages_by_title(session_title: str):
     cursor = connection.cursor(dictionary=True)
 
     # Retrieve all messages for the session title
-    cursor.execute("SELECT session_id, sender, text FROM messages WHERE session_title = %s", (session_title,))
+    cursor.execute(
+        "SELECT session_id, sender, text FROM messages WHERE session_title = %s",
+        (session_title,),
+    )
     messages = cursor.fetchall()
 
     cursor.close()
@@ -225,37 +242,38 @@ async def fetch_messages_by_title(session_title: str):
 
     return {"messages": messages}
 
+
 # Route to handle PDF, video, and YouTube URL submission
 @app.post("/submit")
 async def submit_data(
-    pdf: UploadFile = File(None), 
-    video: UploadFile = File(None), 
-    url: str = Form(None)
+    pdf: UploadFile = File(None), video: UploadFile = File(None), url: str = Form(None)
 ):
     pdf_path, video_path = None, None
 
     # Save PDF file
     if pdf:
-        pdf_path = os.path.join('chatbot/_files', pdf.filename)
-        with open(pdf_path, 'wb') as f:
+        pdf_path = os.path.join("chatbot/_files", pdf.filename)
+        with open(pdf_path, "wb") as f:
             f.write(pdf.file.read())
 
     # Save video file
     if video:
-        video_path = os.path.join('chatbot/_videos', video.filename)
-        with open(video_path, 'wb') as f:
+        video_path = os.path.join("chatbot/_videos", video.filename)
+        with open(video_path, "wb") as f:
             f.write(video.file.read())
 
     response_message = {
-        'message': 'Data received successfully',
-        'pdf_path': pdf_path if pdf else 'No PDF uploaded',
-        'video_path': video_path if video else 'No video uploaded',
-        'youtube_url': url if url else 'No YouTube URL provided'
+        "message": "Data received successfully",
+        "pdf_path": pdf_path if pdf else "No PDF uploaded",
+        "video_path": video_path if video else "No video uploaded",
+        "youtube_url": url if url else "No YouTube URL provided",
     }
 
     return response_message
 
+
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8080)

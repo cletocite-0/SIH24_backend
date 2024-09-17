@@ -13,11 +13,11 @@ dotenv.load_dotenv()
 class RouteQuery(BaseModel):
     """Route a user query to the most relevant datasource."""
 
-    datasource: Literal["common_node", "user_node", "tech_support", "bad_language"] = (
-        Field(
-            ...,
-            description="Given a user query route to either common node or current user node in knowledge graph or route question to tech_support node incase of a support related query..",
-        )
+    datasource: Literal[
+        "common_node", "user_node", "tech_support", "schedule_meeting"
+    ] = Field(
+        ...,
+        description="Given a user query route to either common node or current user node in knowledge graph or route question to tech_support node incase of a support related query or route it to schedule_meeting node incase of a meeting schedule request",
     )
 
 
@@ -29,11 +29,8 @@ def obtain_question_router():
 
     structured_llm_router = model.with_structured_output(RouteQuery)
 
-    system = """Here's the updated version of the prompt that includes routing to a "bad_language" node for filtering offensive content:
-
----
-
-You are an expert routing agent for a company's knowledge graph system. Your task is to determine whether a user's query should be directed to the **common node** (for global company information), the **user node** (for user-specific information), the **tech support node** (for technical issues and IT-related queries), or the **bad_language** node (for offensive or inappropriate content) in the knowledge graph.
+    system = """
+You are an expert routing agent for a company's knowledge graph system. Your task is to determine whether a user's query should be directed to the **common node** (for global company information), the **user node** (for user-specific information), the **tech support node** (for technical issues and IT-related queries), or the **schedule_meeting** node for a request to schedule a meeting.
 
 Follow these guidelines to make your decision:
 
@@ -56,9 +53,9 @@ Follow these guidelines to make your decision:
 - The inquiry is about raising tickets for technical issues or IT-related requests.
 - The query mentions specific technical terms, error messages, or IT processes.
 
-### Route to "bad_language" if:
-- The query contains offensive language, slurs, or inappropriate content.
-- The question involves any NSFW content, offensive remarks, or rude behavior.
+### Route to "schedule_meeting" if:
+- The query is a request to schedule a meeting with a specific user or team.
+- The question involves setting up a meeting, rescheduling, or canceling a meeting.
 
 In this case, your response should be:
 **"We do not support this behavior. Please avoid using offensive or inappropriate language."**
@@ -75,13 +72,13 @@ In this case, your response should be:
 8. **"Can you summarize my performance review from last quarter?"** -> user_node
 9. **"How do I connect to the company VPN?"** -> tech_support
 10. **"What's the process for requesting new software?"** -> tech_support
-11. **"You're all incompetent!"** -> bad_language
+11. **"Can you schedule a meeting with the marketing team for next week?"** -> schedule_meeting
 
-Your output should be either **"common_node"**, **"user_node"**, **"tech_support"**, or **"bad_language"** based on your analysis of the user's query. Remember:
+Your output should be either **"common_node"**, **"user_node"**, **"tech_support"**, or **"schedule_meeting"** based on your analysis of the user's query. Remember:
 - Route to the common node for global, company-wide information.
 - Route to the user node for personalized, user-specific data.
 - Route to the tech support node for technical issues and IT-related queries.
-- Route to the bad language node if the query contains offensive or inappropriate content.
+- Route to the schedule_meeting node for meeting scheduling requests.
 
 --- 
 """
