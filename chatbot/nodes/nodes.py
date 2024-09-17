@@ -616,11 +616,11 @@ def hierachy(state):
                     data.append({"nodes": nodes, "relationships": relationships})
                 return data
 
-    def generate_answer_graph(prompt):
-        response = model.generate_content(prompt)
-        return response.text
+    # def generate_answer_graph(prompt):
+    #     response = model.generate_content(prompt)
+    #     return response.text
 
-    def main_fun_hierachy(person):
+    async def main_fun_hierachy(person):
         client = Neo4jClient(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
         try:
             graph_data = client.fetch_graph_data()
@@ -639,9 +639,16 @@ def hierachy(state):
         Use indentation to reflect the reporting structure. Please ensure the output is clear and organized, without any bold or special formatting.
         """
 
-            answer = generate_answer_graph(prompt)
-            print(answer)
-            return {"generation": answer}
+            model = ChatGroq(
+                temperature=0,
+                model_name="gemma2-9b-it",
+                api_key=os.environ["GROQ_API_KEY"],
+                streaming=True,
+            )
+            print("\n\n")
+            response = await model.ainvoke(prompt)
+            return {"generation": response}
+
         finally:
             client.close()
 
