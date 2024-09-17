@@ -352,15 +352,20 @@ def video_processing(state):
     return {"question": state["question"], "documents": transcribed_text}
 
 
-def tech_support(state):
+async def tech_support(state):
     troubleshooting_prompt = (
         f"Please provide at least three detailed troubleshooting steps for addressing  issues related to '{state['question']}'. "
         f"Format your response with clear instructions, starting with 'Please try the following troubleshooting steps:'"
     )
 
-    output = model.generate_content(troubleshooting_prompt)
-    response = output.parts[0].text
-
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
+    print("\n\n")
+    response = await model.ainvoke(troubleshooting_prompt)
     return {"generation": response}
 
 
