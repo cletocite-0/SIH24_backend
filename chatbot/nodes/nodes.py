@@ -251,7 +251,10 @@ async def generate(state):
 
     Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
     Use as much markdown as possible to format your response.
-    Use ## for headings and ``` code blocks for code.```
+    Use ## for headings and ``` code blocks for code.
+
+    If user requests to generate a graph, generate one and provide a brief explanation of the graph.
+    ```
     """
     model = ChatGroq(
         temperature=0,
@@ -294,9 +297,9 @@ def update_knowledge_graph(state):
 
     # pdf_file = BytesIO(state["pdf"])
     print("---UPDATE KNOWLEDGE GRAPH---")
+    documents = []
     # Process the PDF
     if state["pdf"]:
-        documents = []
         file_path = state["pdf"]
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
@@ -305,7 +308,9 @@ def update_knowledge_graph(state):
                     document = Document(page_content=raw_text)
                     documents.append(document)
     else:
-        documents = state["documents"]
+        raw_text = state["documents"]["text"]
+        if raw_text:
+            documents.append(Document(page_content=raw_text))
 
     # Split document
     text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=80)

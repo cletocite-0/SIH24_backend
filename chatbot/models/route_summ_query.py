@@ -15,7 +15,7 @@ class RouteSummQuery(BaseModel):
 
     routeoutput: Literal["neo4j_user_node", "generate"] = Field(
         ...,
-        description="Given a user query route to user node to query from knowledge graph or summarize the document.",
+        description="Given a user query route to user node to query from knowledge graph or summarize the document or generate a graph for it.",
     )
 
 
@@ -37,7 +37,7 @@ def obtain_summ_usernode_router():
 
     structured_llm_router = model.with_structured_output(RouteSummQuery)
 
-    system = """You are a specialized routing agent in a question-answering system. Your task is to determine whether a user's query should be directed to the knowledge graph (neo4j_user_node) or to the document summarization module (generate).
+    system = """You are a specialized routing agent in a question-answering system. Your task is to determine whether a user's query should be directed to the knowledge graph (neo4j_user_node) or to the document summarization module (generate) which include creating a graph for document.
 Follow these guidelines to make your decision:
 
 Route to "neo4j_user_node" if:

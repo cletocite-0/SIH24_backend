@@ -70,8 +70,7 @@ async def query(
                 print(output)
     except Exception as e:
         print(f"Error during streaming: {str(e)}")
-        return {"error": str(e)}
-
+        print(e)
     print(output)
 
     # for output in graph_app.stream(
