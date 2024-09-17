@@ -18,6 +18,7 @@ from nodes.nodes import (
     chatbot,
     chatbot_rag_router,
     check_uploads,
+    generate_image_graph,
 )
 
 
@@ -42,6 +43,7 @@ def graph():
     workflow.add_node("send_mail", send_email)
     workflow.add_node("route_summarization_usernode", route_summarization_usernode)
     workflow.add_node("chatbot_rag_router", chatbot_rag_router)
+    workflow.add_node("generate_image_graph", generate_image_graph)
 
     # Build graph
     workflow.add_conditional_edges(
@@ -74,13 +76,18 @@ def graph():
     workflow.add_edge("update_knowledge_graph", "route_summarization_usernode")
     workflow.add_edge("tech_support", "send_mail")
     workflow.add_edge("send_mail", END)
+    workflow.add_edge("generate_image_graph", END)
     workflow.add_edge("schedule_meeting", END)
     workflow.add_edge("chatbot", END)
 
     workflow.add_conditional_edges(
         "route_summarization_usernode",
         lambda x: x["next"],
-        {"neo4j_user_node": "neo4j_user_node", "summarize": "summarize"},
+        {
+            "neo4j_user_node": "neo4j_user_node",
+            "summarize": "summarize",
+            "generate_image_graph": "generate_image_graph",
+        },
     )
 
     workflow.add_edge("summarize", "generate")
