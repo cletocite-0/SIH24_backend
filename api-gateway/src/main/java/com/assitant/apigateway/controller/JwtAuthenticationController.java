@@ -1,6 +1,4 @@
-package com.app.behaviour.apigateway.controller;
-
-import static com.app.behaviour.apigateway.constants.Constants.API_GATEWAY_PREDICATE;
+package com.assitant.apigateway.controller;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -28,11 +26,12 @@ import com.assitant.apigateway.model.JwtRequest;
 import com.assitant.apigateway.model.JwtResponse;
 import com.assitant.apigateway.model.ResponseDTO;
 import com.assitant.apigateway.security.JwtTokenUtil;
+import com.assitant.apigateway.constants.MessageConstants;
 
 
 
 
-@RestController(API_GATEWAY_PREDICATE)
+@RestController(MessageConstants.API_GATEWAY_PREDICATE)
 public class JwtAuthenticationController {
 
 	@Autowired

@@ -28,8 +28,10 @@ async def query(
     video: Optional[UploadFile] = File(None),
 ):
     graph_app = graph()
+
+    file_path = None
+    video_path = None
     # Access the uploaded files
-    filename = Optional[str]
     if pdf:
         file_path = os.path.join("_files", pdf.filename)
         # Save the file
@@ -37,7 +39,7 @@ async def query(
             content = await pdf.read()  # Read the file content asynchronously
             f.write(content)  # Write the file content to the defined path
 
-        print("PDF content recieved")
+        print(f"PDF content recieved and saved to {file_path}.")
 
     if video:
         video_path = os.path.join("_videos", video.filename)
@@ -48,27 +50,54 @@ async def query(
 
         print(f"Video content received and saved to {video_path}.")
 
-    for output in graph_app.stream(
-        {
-            "user_id": user_id,
-            "question": question,
-            "pdf": pdf,
-            "video": video,
-        }
-    ):
-        for key, value in output.items():
-            # Node
-            pprint(f"Node '{key}':")
-            # Optional: print full state at each node
-            # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
+    config = {"configurable": {"thread_id": "2"}}
 
-        pprint("\n---\n")
-        print("\n")
+    output = ""
 
-    # Final generation
-    pprint(value["generation"])
+    try:
+        async for event in graph_app.astream_events(
+            {
+                "user_id": user_id,
+                "question": question,
+                "pdf": file_path,
+                "video": video_path,
+            },
+            version="v1",
+            config=config,
+        ):
+            if event["event"] == "on_chat_model_stream":
+                output += event["data"]["chunk"].content
+                print(output)
+    except Exception as e:
+        print(f"Error during streaming: {str(e)}")
+        print(e)
+    print(output)
 
-    return {"generation": value["generation"]}
+    # for output in graph_app.stream(
+    #     {
+    #         "user_id": user_id,
+    #         "question": question,
+    #         "pdf": pdf,
+    #         "video": video,
+    #     }
+    # ):
+    #     print(output)
+    #     for key, value in output.items():
+    #         # Node
+    #         pprint(f"Node '{key}':")
+    #         # Optional: print full state at each node
+    #         # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
+
+    #     pprint("\n---\n")
+    #     print("\n")
+
+    # # Final generation
+    # pprint(value["generation"])
+
+    # return {"generation": value["generation"]}
+
+    # print(output)
+    # return {"generation": output["generation"]}
 
 
 if __name__ == "__main__":

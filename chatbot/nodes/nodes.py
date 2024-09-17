@@ -2,6 +2,7 @@ from email.mime.text import MIMEText
 import smtplib
 from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
+from langchain_groq import ChatGroq
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 from neo4j import GraphDatabase
@@ -20,14 +21,29 @@ import re
 import os
 import pickle
 import time
+import PyPDF2
+from pathlib import Path
+import tempfile
+import subprocess
+import firebase_admin
+from firebase_admin import credentials, storage
+import uuid
+
 from models.route_query import obtain_question_router
-from models.model_generation import obtain_rag_chain
 from models.route_summ_query import obtain_summ_usernode_router
+from models.chatbot_or_rag import obtain_chatbot_rag_router
 
 import whisper
 from moviepy.editor import VideoFileClip
 
-model_audio = whisper.load_model("small")
+
+# Configure Firebase
+FIREBASE_CREDENTIALS_PATH = (
+    r"nodes\firebase_cred.json"  # ask me the file i will share it later
+)
+cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+firebase_admin.initialize_app(cred, {"storageBucket": "host-graph-image.appspot.com"})
+bucket = storage.bucket()
 
 from utils.utils import (
     get_jina_embeddings,
@@ -38,11 +54,51 @@ from utils.utils import (
 
 dotenv.load_dotenv()
 
+model_audio = whisper.load_model("small")
+
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # Initialize the generative model
 model = genai.GenerativeModel("gemini-pro")
-model_audio = whisper.load_model("base")
+
+
+def chatbot_rag_router(state):
+    print("---CHATBOT--- or ---RAG---")
+    question = state["question"]
+
+    question_router = obtain_chatbot_rag_router()
+
+    source = question_router.invoke({"question": question})
+    if source.datasource == "rag":
+        print("---RAG---")
+        return {"next": "route", "question": question}
+    elif source.datasource == "chatbot":
+        print("---CHATBOT---")
+        return {"next": "chatbot", "question": question}
+
+
+async def chatbot(state):
+    # response = model.generate_content(state["question"], stream=True)
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
+    print("\n\n")
+    response = await model.ainvoke(state["question"])
+    return {"generation": response}
+
+
+def check_uploads(state):
+    question = state["question"]
+    print("---CHECK FOR UPLOADS---")
+    if state["pdf"] != None:
+        return "update_knowledge_graph"
+    elif state["video"] != None:
+        return "video_processing"
+    else:
+        return "chatbot_rag_router"
 
 
 def route(state):
@@ -59,34 +115,29 @@ def route(state):
     print("---ROUTE QUESTION---")
     question = state["question"]
 
-    if state["pdf"] != None:
-        return "update_knowledge_graph"
-    elif state["video"] != None:
-        return "video_processing"
+    # pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
 
-    pattern = r"^Schedule meeting @(\d{1,2}:\d{2}\s(?:AM|PM))\s(\d{2}/\d{2}/\d{4})\swith\s((?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},?\s*)+)about\s(.+)$"
+    # match = re.match(pattern, state["question"])
 
-    match = re.match(pattern, state["question"])
-
-    if match:
-        time, date, emails, subject = match.groups()
-        return "schedule_meeting"
+    # if match:
+    #     time, date, emails, subject = match.groups()
+    #     return "schedule_meeting"
 
     question_router = obtain_question_router()
 
     source = question_router.invoke({"question": question})
     if source.datasource == "user_node":
         print("---ROUTE QUERY TO USER NODE IN NEO4J---")
-        return "user_node"
+        return {"next": "user_node", "question": question}
     elif source.datasource == "common_node":
         print("---ROUTE QUERY TO COMMON NODE IN NEO4J---")
-        return "common_node"
+        return {"next": "common_node", "question": question}
     elif source.datasource == "tech_support":
         print("---ROUTE QUERY TO TECH SUPPORT---")
-        return "tech_support"
-    elif source.datasource == "bad_language":
-        print("---ROUTE QUERY TO BAD LANGUAGE NODE---")
-        return "bad_language"
+        return {"next": "tech_support", "question": question}
+    elif source.datasource == "schedule_meeting":
+        print("---ROUTE QUERY TO SCHEDULE MEETING NODE---")
+        return {"next": "schedule_meeting", "question": question}
 
 
 def bad_language(state):
@@ -125,23 +176,9 @@ def route_summarization_usernode(state):
         print("---ROUTE QUERY TO GENERATE---")
         print(source.routeoutput)
         return {"next": "summarize", "question": question}
-
-
-def route_after_breakpoint(state):
-    decision = state["decision"]
-    breakpoint = state["breakpoint"]
-
-    if decision == "proceed":
-        if breakpoint == "1":
-            return "breakpoint_2"
-        elif breakpoint == "2":
-            return "breakpoint_3"
-        elif breakpoint == "3":
-            return "final_node"
-    elif decision == "retry":
-        return f"breakpoint_{breakpoint}"
-    else:
-        return "END"
+    elif source.routeoutput == "generate_image_graph":
+        print("---ROUTE QUERY TO IMAGE GRAPH---")
+        return {"next": "generate_image_graph", "question": question}
 
 
 def neo4j_user_node(state):
@@ -158,8 +195,6 @@ def neo4j_user_node(state):
     query_embedding = get_jina_embeddings([query])[0]
 
     documents = get_relevant_context(query_embedding, "user", user_id)
-
-    print(documents)
 
     return {"documents": documents, "question": query}
 
@@ -182,7 +217,7 @@ def neo4j_common_node(state):
     return {"documents": documents, "question": query}
 
 
-def generate(state):
+async def generate(state):
     """
     Generate answer from retrieved documentation.
 
@@ -193,8 +228,6 @@ def generate(state):
         state (dict): New key added to state, generation, that contains LLM generation
     """
     print("---GENERATE---")
-    question = state["question"]
-    documents = state["documents"]
 
     # rag_chain = obtain_rag_chain()
     # # RAG generation
@@ -219,15 +252,18 @@ def generate(state):
 
     Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
     Use as much markdown as possible to format your response.
-    Use ## for headings and ``` code blocks for code.```
+    Use ## for headings and ``` code blocks for code.
+    ```
     """
-    response = model.generate_content(prompt)
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
 
-    return {
-        "documents": documents,
-        "question": question,
-        "generation": response.parts[0].text,
-    }
+    response = await model.ainvoke(prompt)
+    return {"generation": response}
 
 
 def summarize(state):
@@ -242,13 +278,16 @@ def summarize(state):
     """
     print("---SUMMARIZE---")
     documents = []
-    file_path = f"_files/{state['pdf'].filename}"
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            raw_text = page.extract_text()
-            if raw_text:
-                document = Document(page_content=raw_text)
-                documents.append(document)
+    if state["pdf"]:
+        file_path = state["pdf"]
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                raw_text = page.extract_text()
+                if raw_text:
+                    document = Document(page_content=raw_text)
+                    documents.append(document)
+    else:
+        documents = state["documents"]
 
     return {"question": state["question"], "documents": documents}
 
@@ -257,15 +296,20 @@ def update_knowledge_graph(state):
 
     # pdf_file = BytesIO(state["pdf"])
     print("---UPDATE KNOWLEDGE GRAPH---")
-    # Process the PDF
     documents = []
-    file_path = f"_files/{state['pdf'].filename}"
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            raw_text = page.extract_text()
-            if raw_text:
-                document = Document(page_content=raw_text)
-                documents.append(document)
+    # Process the PDF
+    if state["pdf"]:
+        file_path = state["pdf"]
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                raw_text = page.extract_text()
+                if raw_text:
+                    document = Document(page_content=raw_text)
+                    documents.append(document)
+    else:
+        raw_text = state["documents"]["text"]
+        if raw_text:
+            documents.append(Document(page_content=raw_text))
 
     # Split document
     text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=80)
@@ -294,10 +338,13 @@ def video_processing(state):
         state (dict): Updated state with video key
     """
     print("---VIDEO PROCESSING---")
-    video = state["video"]
-    video_path = f"chatbot/_videos/{video.filename}"
-    output_audio_path = f"chatbot/_audio/{video.filename}.mp3"
+    # video = state["video"]
+    # video_path = f"_videos/{video.filename}"
+    # audio = state["video"].filename[:-4] + ".mp3"
+    # output_audio_path = f"_audio/{audio}"
 
+    video_path = state["video"]
+    output_audio_path = "_audio/output_audio.mp3"
     # Load the video file
     video_clip = VideoFileClip(video_path)
 
@@ -311,9 +358,12 @@ def video_processing(state):
     audio_clip.close()
     video_clip.close()
 
-    transcribed_text = model_audio.transcribe("output_audio.mp3")
+    print("STARTING")
+    transcribed_text = model_audio.transcribe("_audio/output_audio.mp3")
+    print("TRANSCRIBED")
 
     return {"question": state["question"], "documents": transcribed_text}
+
 
 def tech_support(state):
     troubleshooting_prompt = (
@@ -323,7 +373,6 @@ def tech_support(state):
 
     output = model.generate_content(troubleshooting_prompt)
     response = output.parts[0].text
-    
 
     return {"generation": response}
 
@@ -365,10 +414,6 @@ def send_email(state):
         print(f"Failed to send email. Error: {e}")
 
     return {"generation": state["generation"]}
-
-
-def schedule_meeting(state):
-    pass
 
 
 def meeting_shu(state):
@@ -608,4 +653,127 @@ def hierachy(state):
         finally:
             client.close()
 
-    main_fun("Devesh")
+
+def generate_image_graph(state):
+    # Step 1: Extract text from PDF
+    def extract_pdf_text(pdf_path):
+        with open(pdf_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text()
+        print("PDF Text Extracted")
+        return text
+
+    # Step 2: Send user query and PDF text to Gemini
+    def send_to_gemini(pdf_text, user_query, save_dir, file_name):
+        prompt = f"""
+        You are given the following data from a PDF: {pdf_text}
+        Based on the user's query: '{user_query}', provide executable Python code using matplotlib to generate the graph requested.
+        
+        The code should:
+        1. Set a larger figure size to ensure all details are visible, e.g., figsize=(12, 8) or larger.
+        2. Use a higher DPI to improve the image quality, e.g., dpi=150 or higher.
+        3. Rotate x-axis labels by 45 degrees to avoid overlap and ensure readability, using plt.xticks(rotation=45, ha='right').
+        4. Adjust x-axis label spacing if necessary to prevent overlap. Use plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=10)) or similar.
+        5. Include plt.savefig() to save the graph to the folder '{save_dir}' with the filename '{file_name}'.
+        6. Ensure the code is valid and will produce a clear, detailed graph.
+        7. Dont include plt.show() anytime
+
+        Only return valid Python code. Do not include explanations or numbered instructions, just the Python code snippet.
+        """
+
+        # Use Gemini API to get graph generation instructions
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(prompt)
+        desc_prompt = f"""
+        Summarize the following response in 3 sentences, highlighting key insights from the graph data. 
+        Ensure there is no mention of "The graph is saved as an image file named 'output_graph.png' in the 'graph_img' directory." is excluded.
+        This is the input text: {pdf_text}
+        This is the Response: {response}
+    """
+        desc_response = model.generate_content(desc_prompt).text.strip()
+
+        # Extract the code part (clean response)
+        code_snippet = response.text.strip()
+        print("Gemini Response Fetched")
+        return code_snippet, desc_response
+
+    # Step 3: Create and store the graph using matplotlib
+    def create_graph(instructions, file_path):
+        # Clean the code snippet
+        cleaned_instructions = (
+            instructions.replace("```python", "").replace("```", "").strip()
+        )
+
+        # Print the cleaned instructions for debugging
+        print("Cleaned Instructions")
+
+        # Create a temporary file to hold the cleaned code snippet
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
+            temp_file.write(cleaned_instructions.encode("utf-8"))
+            temp_file_path = temp_file.name
+
+        try:
+            # Execute the code from the temporary file
+            result = subprocess.run(
+                ["python", temp_file_path], capture_output=True, text=True
+            )
+
+            # Check if there were any errors during execution
+            if result.returncode != 0:
+                print(f"Error executing the code:\n{result.stderr}")
+                return None
+
+            print(f"Graph successfully generated and saved to {file_path}.")
+            return file_path
+        except Exception as e:
+            print(f"Error generating the graph: {e}")
+            return None
+        finally:
+            # Ensure the temporary file is removed even if an error occurs
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+
+    # Step 4: Upload the graph to Firebase Storage and get the download URL
+    def upload_to_firebase(file_path, bucket_name):
+        # Generate a unique file name using UUID
+        unique_file_name = f"graphs/{uuid.uuid4().hex}.png"
+
+        blob = bucket.blob(unique_file_name)
+        blob.upload_from_filename(file_path)
+        blob.make_public()
+        return blob.public_url
+
+    # Step 5: Main function to orchestrate everything
+    def main_graph_generation(pdf_path, user_query):
+
+        # Define the save directory and filename
+        graph_dir = Path("./graph_img")
+        graph_dir.mkdir(parents=True, exist_ok=True)
+        file_name = "output_graph.png"
+        file_path = graph_dir / file_name
+
+        # Extract text from PDF
+        pdf_text = extract_pdf_text(pdf_path)
+
+        # Send to Gemini for graph instructions
+        graph_instructions, description = send_to_gemini(
+            pdf_text, user_query, graph_dir, file_name
+        )
+        # print(f"Gemini provided instructions:\n{graph_instructions}")
+
+        # Generate and save the graph
+        generated_file_path = create_graph(graph_instructions, file_path)
+
+        if generated_file_path:
+            # Upload the graph to Firebase and get the download URL
+            public_url = upload_to_firebase(
+                generated_file_path, "your-firebase-storage-bucket"
+            )
+            # print(f"Graph uploaded to Firebase. Accessible at: {public_url}")
+            # print(f"Graph Description: {description}")
+            return public_url, description
+
+    url, desc = main_graph_generation(state["pdf"], state["question"])
+    print(url, desc)

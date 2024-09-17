@@ -23,7 +23,7 @@ class GraphState(TypedDict):
     # pdf: BytesIO
     breakpoint: str
     pdf: str
-    video: UploadFile
+    video: str
     support_type: str
     priority: str
     troubleshooting_steps: str

@@ -13,9 +13,9 @@ dotenv.load_dotenv()
 class RouteSummQuery(BaseModel):
     """Route a user query to the most relevant datasource."""
 
-    routeoutput: Literal["neo4j_user_node", "generate"] = Field(
+    routeoutput: Literal["neo4j_user_node", "generate", "generate_image_graph"] = Field(
         ...,
-        description="Given a user query route to user node to query from knowledge graph or summarize the document.",
+        description="Given a user query route to user node to query from knowledge graph or summarize the document or generate a graph for it.",
     )
 
 
@@ -37,7 +37,7 @@ def obtain_summ_usernode_router():
 
     structured_llm_router = model.with_structured_output(RouteSummQuery)
 
-    system = """You are a specialized routing agent in a question-answering system. Your task is to determine whether a user's query should be directed to the knowledge graph (neo4j_user_node) or to the document summarization module (generate).
+    system = """You are a specialized routing agent in a question-answering system. Your task is to determine whether a user's query should be directed to the knowledge graph (neo4j_user_node) or to the document summarization module (generate) which include creating a graph for document.
 Follow these guidelines to make your decision:
 
 Route to "neo4j_user_node" if:
@@ -53,7 +53,11 @@ The query explicitly asks for a summary or overview of a document or topic.
 The query requires analysis or synthesis of information from multiple sources.
 The query is about the content of a specific document or set of documents.
 
+Route to "generate_image_graph" if:
 
+The query explicitly asks for a graph representation of the document or topic.
+The query requires visualization of relationships between entities or concepts.
+The query is about creating a visual summary or representation of information.
 
 Examples:
 
@@ -64,7 +68,9 @@ Examples:
 "What is our company's policy on remote work?" -> neo4j_user_node
 "Give me an overview of the project timeline from the attached PDF." -> generate
 
-Your output should be either "neo4j_user_node" or "generate" based on your analysis of the user's query.
+Your output should be either "neo4j_user_node" or "generate" or "generate_image_graph" based on your analysis of the user's query.
+
+
         """
     route_prompt = ChatPromptTemplate.from_messages(
         [
