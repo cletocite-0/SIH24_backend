@@ -219,6 +219,7 @@ async def receive_message(
 
         async def event_stream():
             nonlocal bot_reply  # Access the bot_reply string
+            count = 0
             async for event in graph_app.astream_events(
                 {
                     "user_id": user_id,
@@ -229,6 +230,7 @@ async def receive_message(
                 version="v1",
                 config=config,
             ):
+                # print(event)
                 if event["event"] == "on_chat_model_stream":
                     chunk = event["data"]["chunk"].content
                     bot_reply += chunk  # Append each chunk to bot_reply
@@ -237,6 +239,15 @@ async def receive_message(
                     # await asyncio.sleep(1)  # Delay in seconds
                     print(chunk)
                     yield chunk
+                # elif event["event"] == "on_chain_end" and count < 1:
+                #     if "chunk" in event["data"].keys():
+                #         count += 1
+                #         print("Final bot reply:", event["data"]["chunk"])
+                #     # bot_reply += event["data"]["output"]
+                #     # print("\n\n")
+                #     # print(event["data"]["output"])
+
+                #     yield "suc"
 
             # Print the final bot reply after streaming is done
             # print("Final bot reply:", bot_reply)
