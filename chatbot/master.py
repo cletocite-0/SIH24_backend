@@ -219,7 +219,6 @@ async def receive_message(
 
         async def event_stream():
             nonlocal bot_reply  # Access the bot_reply string
-            count = 0
             async for event in graph_app.astream_events(
                 {
                     "user_id": user_id,
@@ -230,7 +229,6 @@ async def receive_message(
                 version="v1",
                 config=config,
             ):
-                # print(event)
                 if event["event"] == "on_chat_model_stream":
                     chunk = event["data"]["chunk"].content
                     bot_reply += chunk  # Append each chunk to bot_reply
@@ -239,15 +237,6 @@ async def receive_message(
                     # await asyncio.sleep(1)  # Delay in seconds
                     print(chunk)
                     yield chunk
-                # elif event["event"] == "on_chain_end" and count < 1:
-                #     if "chunk" in event["data"].keys():
-                #         count += 1
-                #         print("Final bot reply:", event["data"]["chunk"])
-                #     # bot_reply += event["data"]["output"]
-                #     # print("\n\n")
-                #     # print(event["data"]["output"])
-
-                #     yield "suc"
 
             # Print the final bot reply after streaming is done
             # print("Final bot reply:", bot_reply)
@@ -256,11 +245,8 @@ async def receive_message(
             cursor = connection.cursor()
 
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-            cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
+            cursor.execute(bot_message_query, ("1", session_tit, "bot", bot_reply))
             connection.commit()
-
-
-
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -380,6 +366,8 @@ async def submit_data(
     return response_message
 
     # Search for session titles based on a query string
+
+
 @app.get("/search/")
 async def search_session_titles(query: str = Query(..., min_length=1)):
     connection = get_db_connection()
@@ -402,7 +390,8 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
         cursor.close()
         connection.close()
 
-    return {"sessions": [session['session_title'] for session in sessions]}
+    return {"sessions": [session["session_title"] for session in sessions]}
+
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":

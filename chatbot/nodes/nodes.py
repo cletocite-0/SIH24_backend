@@ -1,3 +1,4 @@
+import asyncio
 from email.mime.text import MIMEText
 import smtplib
 from langchain.text_splitter import TokenTextSplitter
@@ -397,7 +398,7 @@ def send_email(state):
     return {"generation": state["generation"]}
 
 
-def meeting_shu(state):
+async def meeting_shu(state):
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
     TOKEN_FILE = "token.pickle"
     CREDENTIALS_FILE = "C:\\Users\\rajku\\OneDrive\\Documents\\ClePro\\HACKATHON\\SIH24_backend\\chatbot\\nodes\\cred.json"
@@ -574,7 +575,23 @@ def meeting_shu(state):
             print("Failed to extract meeting details.")
 
     main_fun(state["question"])
-    return {"generation": "Meeting scheduled successfully."}
+
+    prompt = f"""{state['question']}
+                Meeting has been scheduled successfully and I only want you to return a summarization of successfull meeting scheduling of above meet.
+                Properly format(Markdown) it to make to it more readable and beautiful.
+                """
+
+    model_groq = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
+    print("\n\n")
+    response = await model_groq.ainvoke(prompt)
+    return {"generation": response}
+
+    # return {"generation": "Meeting scheduled successfully."}
 
 
 async def hierachy(state):
