@@ -227,6 +227,8 @@ async def generate(state):
 
     **Answer**:
 
+    Incase of Meeting summarizations I want you to summarize the meeting in a proper format and make it more readable and beautiful and also identify the key points of the meeting.
+
     Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
     Use as much markdown as possible to format your response.
     Use ## for headings and ``` code blocks for code.
