@@ -75,8 +75,12 @@ async def chatbot(state):
         api_key=os.environ["GROQ_API_KEY"],
         streaming=True,
     )
+    prompt = f""" You are an enterprise assistant for GAIL and make sure all your replies are centered around helping the user with their queries and for queries which are greetings reply with something related to the fact that he is a gail employee and ask what he wants help with either tech support, pdf/meeing video summarization or email drafting, email sending or any other query related to GAIL and their policies/rulebooks.
+    Format your message in a polite and respectful manner and make sure to provide the user with the necessary information and use emotes to make the conversation more engaging and make it as comprehensive and descriptive as possible.
+    {state['question']}
+                """
     print("\n\n")
-    response = await model.ainvoke(state["question"])
+    response = await model.ainvoke(prompt)
     return {"generation": response}
 
 
