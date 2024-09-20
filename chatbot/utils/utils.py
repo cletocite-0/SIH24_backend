@@ -34,7 +34,7 @@ driver = GraphDatabase.driver(uri, auth=(username, password))
 
 # Firebase Configuration
 FIREBASE_CREDENTIALS_PATH = (
-    r"nodes\firebase_cred.json"  # ask me the file i will share it later
+    r"D:\SIH24\SIH24_backend\chatbot\nodes\firebase_cred.json"  # ask me the file i will share it later
 )
 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
 firebase_admin.initialize_app(cred, {"storageBucket": "host-graph-image.appspot.com"})

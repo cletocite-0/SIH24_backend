@@ -35,22 +35,15 @@ db_config = {
     'user': 'root',
     'password': 'CowTheGreat',
     'host': 'localhost',
-    'database': 'sih'
+    'database': 'kcg'
 }
 
 # db_config = {
-#     'user': 'root',
-#     'password': 'CowTheGreat',
-#     'host': 'localhost',
-#     'database': 'sih'
+#     "user": "unfnny1o9zn09z9a",
+#     "password": "Yzfw1C8GG1k0H4w0aiEb",
+#     "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
+#     "database": "b1urg5hqy4fizvsrfabz",
 # }
-
-db_config = {
-    "user": "unfnny1o9zn09z9a",
-    "password": "Yzfw1C8GG1k0H4w0aiEb",
-    "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
-    "database": "b1urg5hqy4fizvsrfabz",
-}
 
 
 # Create a database connection
@@ -58,11 +51,44 @@ def get_db_connection():
     return mysql.connector.connect(**db_config)
 
 
-# Pydantic models
-# class MessageRequest(BaseModel):
-#     session_id: str
-#     session_title: str = "Default Title"
-#     query: str
+
+# Pydantic model for login request
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+# Database query function to get the user by email
+def get_user_by_email(email: str):
+    try:
+        # Establish a connection to the database
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+
+        # Query the database for the user by email
+        query = "SELECT * FROM users WHERE email = %s"
+        cursor.execute(query, (email,))
+        user = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+        
+        return user
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None
+
+# Login endpoint
+@app.post("/login")
+async def login(request: LoginRequest):
+    user = get_user_by_email(request.email)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    # Check if the password provided matches the plain-text password in the database
+    if request.password != user['password']:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    return {"message": "Login successful"}
 
 
 class UpdateSessionTitleRequest(BaseModel):
@@ -402,5 +428,4 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
-
     uvicorn.run(app, host="0.0.0.0", port=8080)

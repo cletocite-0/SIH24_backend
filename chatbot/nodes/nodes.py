@@ -407,7 +407,7 @@ def send_email(state):
 async def meeting_shu(state):
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
     TOKEN_FILE = "token.pickle"
-    CREDENTIALS_FILE = "C:\\Users\\rajku\\OneDrive\\Documents\\ClePro\\HACKATHON\\SIH24_backend\\chatbot\\nodes\\cred.json"
+    CREDENTIALS_FILE = "chatbot\nodes\cred.json"
 
     def generate_answer(prompt):
         try:
