@@ -31,6 +31,13 @@ app.add_middleware(
 )
 
 # MySQL configuration
+db_config = {
+    'user': 'root',
+    'password': 'CowTheGreat',
+    'host': 'localhost',
+    'database': 'sih'
+}
+
 # db_config = {
 #     'user': 'root',
 #     'password': 'CowTheGreat',
