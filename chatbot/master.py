@@ -35,7 +35,7 @@ db_config = {
     'user': 'root',
     'password': 'CowTheGreat',
     'host': 'localhost',
-    'database': 'kcg'
+    'database': ''
 }
 
 # db_config = {
@@ -111,89 +111,6 @@ class QueryRequest(BaseModel):
     question: str
     pdf: Optional[UploadFile] = None
     video: Optional[UploadFile] = None
-
-
-# @app.post("/query")
-# async def receive_message(user_id: str = Form(...),
-#     question: str = Form(...),
-#     pdf: Optional[UploadFile] = File(None),
-#     video: Optional[UploadFile] = File(None)):
-#     print("query recived")
-#     connection = get_db_connection()
-
-#     # session title
-#     booltitle = 1
-#     if(booltitle):
-#         booltitle = 0
-#         session_tit = question[0:15]
-
-#     if not connection:
-#         raise HTTPException(status_code=500, detail="Failed to connect to the database")
-
-#     try:
-#         cursor = connection.cursor()
-
-#         # Insert the user's message into the database
-#         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-#         cursor.execute(user_message_query, ("1", session_tit, 'user', question))
-#         connection.commit()
-#         print("DB UPDATED")
-#         # Dummy bot response (you can replace this with AI response logic)
-#         graph_app = graph()
-#         print("GRAPH COMPILED")
-#     # Access the uploaded files
-#         filename = Optional[str]
-#         if pdf:
-#             file_path = os.path.join("_files", pdf.filename)
-#             # Save the file
-#             with open(file_path, "wb") as f:
-#                 content = await pdf.read()  # Read the file content asynchronously
-#                 f.write(content)  # Write the file content to the defined path
-
-#             print("PDF content recieved")
-
-#         if video:
-#             video_path = os.path.join("_videos", video.filename)
-#             # Save the video file
-#             with open("chatbot/_videos/videoplayback.mp4", "wb") as f:
-#                 content = await video.read()  # Read the file content asynchronously
-#                 f.write(content)  # Write the video content to the defined path
-
-#             print(f"Video content received and saved to {video_path}.")
-
-#         for output in graph_app.stream(
-#             {
-#                 "user_id": user_id,
-#                 "question": question,
-#                 "pdf": pdf,
-#                 "video": video,
-#             }
-#         ):
-#             for key, value in output.items():
-#                 # Node
-#                 pprint(f"Node '{key}':")
-#                 # Optional: print full state at each node
-#                 # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
-#             pprint("\n---\n")
-#             print("\n")
-
-#     # Final generation
-#         pprint(value["generation"])
-#         bot_reply = value["generation"]
-
-#         # Insert the bot's response into the database
-#         bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-#         cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
-#         connection.commit()
-
-#     except mysql.connector.Error as e:
-#         raise HTTPException(status_code=500, detail=f"Database error: {e}")
-#     finally:
-#         cursor.close()
-#         connection.close()
-
-#     return {"answer": bot_reply}
-
 
 @app.post("/query")
 async def receive_message(

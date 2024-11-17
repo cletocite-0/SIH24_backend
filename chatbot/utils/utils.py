@@ -32,12 +32,15 @@ username = "neo4j"
 password = "ZyvWu0bndBWMNu6lYlb5Fa3PkfsrWXes-gg0DPrAZLc"
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
-# Firebase Configuration
-FIREBASE_CREDENTIALS_PATH = (
-    r"D:\SIH24\SIH24_backend\chatbot\nodes\firebase_cred.json"  # ask me the file i will share it later
-)
-cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+# Get Firebase credentials from the environment
+firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+firebase_credentials = json.loads(firebase_credentials_json)
+
+# Initialize Firebase with the credentials from the environment
+cred = credentials.Certificate(firebase_credentials)
 firebase_admin.initialize_app(cred, {"storageBucket": "host-graph-image.appspot.com"})
+
+# Access the storage bucket
 bucket = storage.bucket()
 
 
