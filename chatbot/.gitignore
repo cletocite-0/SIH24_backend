@@ -3,4 +3,4 @@
 /nodes/cred.json
 /nodes/firebase_cred.json
 /chatbot/nodes/cred.json
-/.env
+.env
