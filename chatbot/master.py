@@ -13,6 +13,11 @@ from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
 from graph.graph import graph
+from jose import JWTError, jwt
+from pydantic import BaseModel
+from typing import Optional
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends
 
 app = FastAPI()
 
@@ -35,7 +40,7 @@ db_config = {
     'user': 'root',
     'password': 'CowTheGreat',
     'host': 'localhost',
-    'database': ''
+    'database': 'sihfinale'
 }
 
 # db_config = {
@@ -45,17 +50,33 @@ db_config = {
 #     "database": "b1urg5hqy4fizvsrfabz",
 # }
 
+# Mock secret key for JWT encoding/decoding
+SECRET_KEY = "secretkey123"
+ALGORITHM = "HS256"
+
+# Pydantic model for login request
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# Dependency to get the user based on token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 
 # Create a database connection
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
 
-
 # Pydantic model for login request
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+class UpdateSessionTitleRequest(BaseModel):
+    session_id: str
+    new_title: str
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -77,6 +98,28 @@ def get_user_by_email(email: str):
         print(f"Error: {err}")
         return None
 
+# Function to generate JWT token
+def create_access_token(data: dict):
+    token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"Generated JWT: {token}") 
+    return token
+
+
+
+# Dependency to get current user based on the token
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = get_user_by_email(email)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
 # Login endpoint
 @app.post("/login")
 async def login(request: LoginRequest):
@@ -84,16 +127,15 @@ async def login(request: LoginRequest):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    # Check if the password provided matches the plain-text password in the database
+    # Check if the password matches the one in the database
     if request.password != user['password']:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    return {"message": "Login successful"}
+    # Generate a JWT token
+    token = create_access_token({"sub": user['email']})
+    print(f"Token sent to client: {token}")  # Log the token before returning
+    return {"access_token": token, "token_type": "bearer"}
 
-
-class UpdateSessionTitleRequest(BaseModel):
-    session_id: str
-    new_title: str
 
 
 # Route to generate a new session ID
@@ -114,6 +156,7 @@ class QueryRequest(BaseModel):
 
 @app.post("/query")
 async def receive_message(
+    user: dict = Depends(get_current_user),  # Ensure the user is authenticated
     user_id: str = Form(...),
     question: str = Form(...),
     pdf: Optional[UploadFile] = File(None),
@@ -124,8 +167,6 @@ async def receive_message(
     connection = get_db_connection()
 
     # Create session title based on the question
-    # session_title = question[:15]  # Limit to 15 characters
-    # session title
     booltitle = 1
     if booltitle:
         booltitle = 0
@@ -138,8 +179,8 @@ async def receive_message(
         cursor = connection.cursor()
 
         # Insert the user's message into the database
-        user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(user_message_query, ("1", session_tit, "user", question))
+        user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(user_message_query, ("1", session_tit, "user", question, "cow"))  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
 
@@ -148,21 +189,19 @@ async def receive_message(
         # Access the uploaded files
         if pdf:
             file_path = os.path.join("_files", pdf.filename)
-            # Save the file
             with open(file_path, "wb") as f:
                 content = await pdf.read()  # Read the file content asynchronously
-                f.write(content)  # Write the file content to the defined path
+                f.write(content)
 
-            print(f"PDF content recieved and saved to {file_path}.")
+            print(f"PDF content received and saved to {file_path}.")
 
         if video:
             video_path = os.path.join("_videos", video.filename)
-            # Save the video file
             with open(video_path, "wb") as f:
-                content = await video.read()  # Read the file content asynchronously
-                f.write(content)  # Write the video content to the defined path
+                content = await video.read()  # Read the video content asynchronously
+                f.write(content)
 
-            print(f"Video content received and saved to {video_path}.")
+            print(f"Video content received and saved to {video_path}.")
 
         config = {"configurable": {"thread_id": "2"}}
         bot_reply = ""  # Initialize bot_reply as an empty string
@@ -182,20 +221,12 @@ async def receive_message(
                 if event["event"] == "on_chat_model_stream":
                     chunk = event["data"]["chunk"].content
                     bot_reply += chunk  # Append each chunk to bot_reply
-
-                    # Add a delay to simulate slow streaming
-                    # await asyncio.sleep(1)  # Delay in seconds
                     print(chunk)
                     yield chunk
 
-            # Print the final bot reply after streaming is done
-            # print("Final bot reply:", bot_reply)
-
-            connection = get_db_connection()
-            cursor = connection.cursor()
-
-            bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-            cursor.execute(bot_message_query, ("1", session_tit, "bot", bot_reply))
+            # After streaming, insert bot's reply into the database
+            bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+            cursor.execute(bot_message_query, ("1", session_tit, "bot", bot_reply, "cow"))  # Use authenticated user's name
             connection.commit()
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -205,6 +236,7 @@ async def receive_message(
     finally:
         cursor.close()
         connection.close()
+
 
 
 @app.get("/messages/{session_id}")
