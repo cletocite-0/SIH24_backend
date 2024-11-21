@@ -2,3 +2,4 @@
 /_videos
 /nodes/cred.json
 /nodes/firebase_cred.json
+/.env
