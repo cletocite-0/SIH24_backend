@@ -13,7 +13,9 @@ from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
 from graph.graph import graph
-from jose import JWTError, jwt
+
+from jose import JWTError
+import jwt
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
@@ -37,10 +39,10 @@ app.add_middleware(
 
 # MySQL configuration
 db_config = {
-    'user': 'root',
-    'password': 'CowTheGreat',
-    'host': 'localhost',
-    'database': 'sihfinale'
+    "user": "root",
+    "password": "CowTheGreat",
+    "host": "localhost",
+    "database": "sihfinale",
 }
 
 # db_config = {
@@ -53,6 +55,7 @@ db_config = {
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
 ALGORITHM = "HS256"
+
 
 # Pydantic model for login request
 class LoginRequest(BaseModel):
@@ -74,9 +77,11 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+
 class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
+
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -92,18 +97,18 @@ def get_user_by_email(email: str):
 
         cursor.close()
         connection.close()
-        
+
         return user
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         return None
 
+
 # Function to generate JWT token
 def create_access_token(data: dict):
     token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-    print(f"Generated JWT: {token}") 
+    print(f"Generated JWT: {token}")
     return token
-
 
 
 # Dependency to get current user based on the token
@@ -120,6 +125,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
+
 # Login endpoint
 @app.post("/login")
 async def login(request: LoginRequest):
@@ -128,14 +134,13 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # Check if the password matches the one in the database
-    if request.password != user['password']:
+    if request.password != user["password"]:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # Generate a JWT token
-    token = create_access_token({"sub": user['email']})
+    token = create_access_token({"sub": user["email"]})
     print(f"Token sent to client: {token}")  # Log the token before returning
     return {"access_token": token, "token_type": "bearer"}
-
 
 
 # Route to generate a new session ID
@@ -153,6 +158,7 @@ class QueryRequest(BaseModel):
     question: str
     pdf: Optional[UploadFile] = None
     video: Optional[UploadFile] = None
+
 
 @app.post("/query")
 async def receive_message(
@@ -180,7 +186,9 @@ async def receive_message(
 
         # Insert the user's message into the database
         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(user_message_query, ("1", session_tit, "user", question, "cow"))  # Use authenticated user's name
+        cursor.execute(
+            user_message_query, ("1", session_tit, "user", question, "cow")
+        )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
 
@@ -226,7 +234,9 @@ async def receive_message(
 
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
-            cursor.execute(bot_message_query, ("1", session_tit, "bot", bot_reply, "cow"))  # Use authenticated user's name
+            cursor.execute(
+                bot_message_query, ("1", session_tit, "bot", bot_reply, "cow")
+            )  # Use authenticated user's name
             connection.commit()
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -236,7 +246,6 @@ async def receive_message(
     finally:
         cursor.close()
         connection.close()
-
 
 
 @app.get("/messages/{session_id}")
