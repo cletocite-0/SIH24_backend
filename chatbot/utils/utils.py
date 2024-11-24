@@ -48,7 +48,8 @@ def get_jina_embeddings(texts):
     url = "https://api.jina.ai/v1/embeddings"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": os.environ["JINA_AUTHORIZATION_KEY"],
+        # "Authorization": os.environ["JINA_AUTHORIZATION_KEY"],
+        "Authorization": "Bearer jina_6f5c954572b64f59b9981f7e3c0bf550lTiWT5sW_gyTkoFQEaHQTRwZhmlW",
     }
     data = {
         "model": "jina-clip-v1",

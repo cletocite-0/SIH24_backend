@@ -241,7 +241,8 @@ async def generate(state):
     model = ChatGroq(
         temperature=0,
         model_name="gemma2-9b-it",
-        api_key=os.environ["GROQ_API_KEY"],
+        # api_key=os.environ["GROQ_API_KEY"],
+        api_key="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",
         streaming=True,
     )
 

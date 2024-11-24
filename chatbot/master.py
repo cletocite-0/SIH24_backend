@@ -231,7 +231,10 @@ async def receive_message(
                     bot_reply += chunk  # Append each chunk to bot_reply
                     print(chunk)
                     yield chunk
-
+                    
+            
+            connection = get_db_connection()
+            cursor = connection.cursor()
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(
