@@ -6,3 +6,4 @@
 .env
 /chatbot/.env
 /SIH24_backend/chatbot/.env
+/.env
