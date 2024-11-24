@@ -27,9 +27,9 @@ dotenv.load_dotenv()
 #     auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]),
 # )
 
-uri = "neo4j+s://332e43eb.databases.neo4j.io"  # Your Neo4j Aura URI
+uri = "neo4j+s://e9d220be.databases.neo4j.io"  # Your Neo4j Aura URI
 username = "neo4j"
-password = "ZyvWu0bndBWMNu6lYlb5Fa3PkfsrWXes-gg0DPrAZLc"
+password = "0vBNNbEI7HYXfZetC-xn94IBSu8zHXyadBTTK4NGwpM"
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
 # Get Firebase credentials from the environment

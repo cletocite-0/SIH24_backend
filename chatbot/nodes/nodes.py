@@ -601,9 +601,9 @@ async def meeting_shu(state):
 
 
 async def hierachy(state):
-    NEO4J_URI = "neo4j+s://2cbd2ddb.databases.neo4j.io"
+    NEO4J_URI = "neo4j+s://96436377.databases.neo4j.io"
     NEO4J_USERNAME = "neo4j"
-    NEO4J_PASSWORD = "W_OwGl8HD0XAHkvFoDWf93ZNpyCf-efTsEGcmgLVU_k"
+    NEO4J_PASSWORD = "rF3N3WPa5NvIgUTfXZh1c-zvbcE2bWBz4k0thBVa-8M"
 
     # GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
     class Neo4jClient:
