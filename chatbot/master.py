@@ -3,7 +3,6 @@ from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import os
 import io
 import uuid
 import mysql.connector
@@ -13,7 +12,8 @@ from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
 from graph.graph import graph
-
+from dotenv import load_dotenv
+import os
 from jose import JWTError
 import jwt
 from pydantic import BaseModel
@@ -38,12 +38,12 @@ app.add_middleware(
 )
 
 # MySQL configuration
-db_config = {
-    "user": "root",
-    "password": "CowTheGreat",
-    "host": "localhost",
-    "database": "sihfinale",
-}
+# db_config = {
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # db_config = {
 #     "user": "unfnny1o9zn09z9a",
@@ -51,6 +51,16 @@ db_config = {
 #     "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
 #     "database": "b1urg5hqy4fizvsrfabz",
 # }
+
+# Load environment variables from the .env file
+load_dotenv()
+
+db_config = {
+    "user": os.getenv("MYSQL_ADDON_USER"),
+    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+    "host": os.getenv("MYSQL_ADDON_HOST"),
+    "database": os.getenv("MYSQL_ADDON_DB"),
+}
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
