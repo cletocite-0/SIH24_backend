@@ -27,9 +27,9 @@ dotenv.load_dotenv()
 #     auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]),
 # )
 
-uri = "neo4j+s://e9d220be.databases.neo4j.io"  # Your Neo4j Aura URI
-username = "neo4j"
-password = "0vBNNbEI7HYXfZetC-xn94IBSu8zHXyadBTTK4NGwpM"
+uri = os.getenv("NEO4J_URI_EMBEDDINGS")  # Your Neo4j Aura URI
+username = os.getenv("NEO4J_USERNAME_EMBEDDINGS")
+password = os.getenv("NEO4J_PASSWORD_EMBEDDINGS")
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
 # Get Firebase credentials from the environment
@@ -48,8 +48,7 @@ def get_jina_embeddings(texts):
     url = "https://api.jina.ai/v1/embeddings"
     headers = {
         "Content-Type": "application/json",
-        # "Authorization": os.environ["JINA_AUTHORIZATION_KEY"],
-        "Authorization": "Bearer jina_6f5c954572b64f59b9981f7e3c0bf550lTiWT5sW_gyTkoFQEaHQTRwZhmlW",
+        "Authorization": os.environ["JINA_AUTHORIZATION_KEY"],
     }
     data = {
         "model": "jina-clip-v1",

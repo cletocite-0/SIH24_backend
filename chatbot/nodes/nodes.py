@@ -241,8 +241,7 @@ async def generate(state):
     model = ChatGroq(
         temperature=0,
         model_name="gemma2-9b-it",
-        # api_key=os.environ["GROQ_API_KEY"],
-        api_key="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",
+        api_key=os.environ["GROQ_API_KEY"],
         streaming=True,
     )
 
@@ -602,9 +601,9 @@ async def meeting_shu(state):
 
 
 async def hierachy(state):
-    NEO4J_URI = "neo4j+s://96436377.databases.neo4j.io"
-    NEO4J_USERNAME = "neo4j"
-    NEO4J_PASSWORD = "rF3N3WPa5NvIgUTfXZh1c-zvbcE2bWBz4k0thBVa-8M"
+    NEO4J_URI = os.getenv("NEO4J_URI_HIERARCHY")
+    NEO4J_USERNAME = os.getenv("NEO4J_USERNAME_HIERARCHY")
+    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD_HIERARCHY")
 
     # GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
     class Neo4jClient:
