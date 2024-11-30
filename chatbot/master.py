@@ -3,7 +3,6 @@ from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import os
 import io
 import uuid
 import mysql.connector
@@ -13,6 +12,14 @@ from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
 from graph.graph import graph
+from dotenv import load_dotenv
+import os
+from jose import JWTError
+import jwt
+from pydantic import BaseModel
+from typing import Optional
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends
 
 app = FastAPI()
 
@@ -32,18 +39,42 @@ app.add_middleware(
 
 # MySQL configuration
 # db_config = {
-#     'user': 'root',
-#     'password': 'CowTheGreat',
-#     'host': 'localhost',
-#     'database': 'sih'
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
 # }
 
+# db_config = {
+#     "user": "unfnny1o9zn09z9a",
+#     "password": "Yzfw1C8GG1k0H4w0aiEb",
+#     "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
+#     "database": "b1urg5hqy4fizvsrfabz",
+# }
+
+# Load environment variables from the .env file
+load_dotenv()
+
 db_config = {
-    "user": "unfnny1o9zn09z9a",
-    "password": "Yzfw1C8GG1k0H4w0aiEb",
-    "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
-    "database": "b1urg5hqy4fizvsrfabz",
+    "user": os.getenv("MYSQL_ADDON_USER"),
+    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+    "host": os.getenv("MYSQL_ADDON_HOST"),
+    "database": os.getenv("MYSQL_ADDON_DB"),
 }
+
+# Mock secret key for JWT encoding/decoding
+SECRET_KEY = "secretkey123"
+ALGORITHM = "HS256"
+
+
+# Pydantic model for login request
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# Dependency to get the user based on token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 # Create a database connection
@@ -51,16 +82,75 @@ def get_db_connection():
     return mysql.connector.connect(**db_config)
 
 
-# Pydantic models
-# class MessageRequest(BaseModel):
-#     session_id: str
-#     session_title: str = "Default Title"
-#     query: str
+# Pydantic model for login request
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 
 class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
+
+
+# Database query function to get the user by email
+def get_user_by_email(email: str):
+    try:
+        # Establish a connection to the database
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+
+        # Query the database for the user by email
+        query = "SELECT * FROM users WHERE email = %s"
+        cursor.execute(query, (email,))
+        user = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        return user
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None
+
+
+# Function to generate JWT token
+def create_access_token(data: dict):
+    token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"Generated JWT: {token}")
+    return token
+
+
+# Dependency to get current user based on the token
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user = get_user_by_email(email)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+
+# Login endpoint
+@app.post("/login")
+async def login(request: LoginRequest):
+    user = get_user_by_email(request.email)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    # Check if the password matches the one in the database
+    if request.password != user["password"]:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    # Generate a JWT token
+    token = create_access_token({"sub": user["email"]})
+    print(f"Token sent to client: {token}")  # Log the token before returning
+    return {"access_token": token, "token_type": "bearer"}
 
 
 # Route to generate a new session ID
@@ -80,90 +170,9 @@ class QueryRequest(BaseModel):
     video: Optional[UploadFile] = None
 
 
-# @app.post("/query")
-# async def receive_message(user_id: str = Form(...),
-#     question: str = Form(...),
-#     pdf: Optional[UploadFile] = File(None),
-#     video: Optional[UploadFile] = File(None)):
-#     print("query recived")
-#     connection = get_db_connection()
-
-#     # session title
-#     booltitle = 1
-#     if(booltitle):
-#         booltitle = 0
-#         session_tit = question[0:15]
-
-#     if not connection:
-#         raise HTTPException(status_code=500, detail="Failed to connect to the database")
-
-#     try:
-#         cursor = connection.cursor()
-
-#         # Insert the user's message into the database
-#         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-#         cursor.execute(user_message_query, ("1", session_tit, 'user', question))
-#         connection.commit()
-#         print("DB UPDATED")
-#         # Dummy bot response (you can replace this with AI response logic)
-#         graph_app = graph()
-#         print("GRAPH COMPILED")
-#     # Access the uploaded files
-#         filename = Optional[str]
-#         if pdf:
-#             file_path = os.path.join("_files", pdf.filename)
-#             # Save the file
-#             with open(file_path, "wb") as f:
-#                 content = await pdf.read()  # Read the file content asynchronously
-#                 f.write(content)  # Write the file content to the defined path
-
-#             print("PDF content recieved")
-
-#         if video:
-#             video_path = os.path.join("_videos", video.filename)
-#             # Save the video file
-#             with open("chatbot/_videos/videoplayback.mp4", "wb") as f:
-#                 content = await video.read()  # Read the file content asynchronously
-#                 f.write(content)  # Write the video content to the defined path
-
-#             print(f"Video content received and saved to {video_path}.")
-
-#         for output in graph_app.stream(
-#             {
-#                 "user_id": user_id,
-#                 "question": question,
-#                 "pdf": pdf,
-#                 "video": video,
-#             }
-#         ):
-#             for key, value in output.items():
-#                 # Node
-#                 pprint(f"Node '{key}':")
-#                 # Optional: print full state at each node
-#                 # pprint.pprint(value["keys"], indent=2, width=80, depth=None)
-#             pprint("\n---\n")
-#             print("\n")
-
-#     # Final generation
-#         pprint(value["generation"])
-#         bot_reply = value["generation"]
-
-#         # Insert the bot's response into the database
-#         bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-#         cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
-#         connection.commit()
-
-#     except mysql.connector.Error as e:
-#         raise HTTPException(status_code=500, detail=f"Database error: {e}")
-#     finally:
-#         cursor.close()
-#         connection.close()
-
-#     return {"answer": bot_reply}
-
-
 @app.post("/query")
 async def receive_message(
+    user: dict = Depends(get_current_user),  # Ensure the user is authenticated
     user_id: str = Form(...),
     question: str = Form(...),
     pdf: Optional[UploadFile] = File(None),
@@ -174,8 +183,6 @@ async def receive_message(
     connection = get_db_connection()
 
     # Create session title based on the question
-    # session_title = question[:15]  # Limit to 15 characters
-    # session title
     booltitle = 1
     if booltitle:
         booltitle = 0
@@ -188,8 +195,10 @@ async def receive_message(
         cursor = connection.cursor()
 
         # Insert the user's message into the database
-        user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(user_message_query, ("1", session_tit, "user", question))
+        user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(
+            user_message_query, ("1", session_tit, "user", question, "cow")
+        )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
 
@@ -198,21 +207,19 @@ async def receive_message(
         # Access the uploaded files
         if pdf:
             file_path = os.path.join("_files", pdf.filename)
-            # Save the file
             with open(file_path, "wb") as f:
                 content = await pdf.read()  # Read the file content asynchronously
-                f.write(content)  # Write the file content to the defined path
+                f.write(content)
 
-            print(f"PDF content recieved and saved to {file_path}.")
+            print(f"PDF content received and saved to {file_path}.")
 
         if video:
             video_path = os.path.join("_videos", video.filename)
-            # Save the video file
             with open(video_path, "wb") as f:
-                content = await video.read()  # Read the file content asynchronously
-                f.write(content)  # Write the video content to the defined path
+                content = await video.read()  # Read the video content asynchronously
+                f.write(content)
 
-            print(f"Video content received and saved to {video_path}.")
+            print(f"Video content received and saved to {video_path}.")
 
         config = {"configurable": {"thread_id": "2"}}
         bot_reply = ""  # Initialize bot_reply as an empty string
@@ -232,18 +239,18 @@ async def receive_message(
                 if event["event"] == "on_chat_model_stream":
                     chunk = event["data"]["chunk"].content
                     bot_reply += chunk  # Append each chunk to bot_reply
-
-                    # Add a delay to simulate slow streaming
-                    # await asyncio.sleep(1)  # Delay in seconds
                     print(chunk)
                     yield chunk
-
-            # Print the final bot reply after streaming is done
-            # print("Final bot reply:", bot_reply)
-
-            # bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-            # cursor.execute(bot_message_query, ("1", session_tit, 'bot', bot_reply))
-            # connection.commit()
+                    
+            
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            # After streaming, insert bot's reply into the database
+            bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+            cursor.execute(
+                bot_message_query, ("1", session_tit, "bot", bot_reply, "cow")
+            )  # Use authenticated user's name
+            connection.commit()
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -362,8 +369,34 @@ async def submit_data(
 
     return response_message
 
+    # Search for session titles based on a query string
+
+
+@app.get("/search/")
+async def search_session_titles(query: str = Query(..., min_length=1)):
+    connection = get_db_connection()
+    if not connection:
+        raise HTTPException(status_code=500, detail="Failed to connect to the database")
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        # SQL Query to find session titles that contain the search term
+        search_query = "SELECT DISTINCT session_title FROM messages WHERE text LIKE %s"
+        cursor.execute(search_query, (f"%{query}%",))
+        sessions = cursor.fetchall()
+
+        if not sessions:
+            return {"message": "No sessions found."}
+
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"sessions": [session["session_title"] for session in sessions]}
+
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
-
     uvicorn.run(app, host="0.0.0.0", port=8080)

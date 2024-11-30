@@ -36,7 +36,7 @@ Follow these guidelines to make your decision:
 
 ### Route to "common_node" if:
 - The query is about general company policies, procedures, or global information.
-- The question relates to company-wide support, products, or services.
+- The question relates to company-wide support, products, or service, or gail holidays.
 - The inquiry is about standard practices, regulations, or information that applies to all employees or departments.
 - The query doesn't mention or imply any user-specific context or technical issues.
 

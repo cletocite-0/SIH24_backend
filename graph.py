@@ -9,7 +9,7 @@ from firebase_admin import credentials, storage
 import uuid 
 
 # Configure Firebase
-FIREBASE_CREDENTIALS_PATH = 'F:\\SIH_Work_emb_flaskconnect\\backend\\firebase_cred.json' #ask me the file i will share it later
+FIREBASE_CREDENTIALS_PATH = 'D:\\SIH24\\SIH24_backend\\chatbot\\nodes\\firebase_cred.json' #ask me the file i will share it later
 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
 firebase_admin.initialize_app(cred, {'storageBucket': 'host-graph-image.appspot.com'})
 bucket = storage.bucket()
