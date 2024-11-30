@@ -27,3 +27,18 @@ class GraphState(TypedDict):
     support_type: str
     priority: str
     troubleshooting_steps: str
+
+
+class AgenticGraphState(TypedDict):
+    """
+    Represents the state of our graph.
+
+    Attributes:
+        question: question
+        generation: LLM generation
+        documents: list of documents
+    """
+
+    user_id: str
+    next: str
+    description: str

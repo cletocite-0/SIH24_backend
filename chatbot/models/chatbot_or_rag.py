@@ -11,8 +11,12 @@ dotenv.load_dotenv()
 
 
 class RouteQuery(BaseModel):
-    """Route a user query to the most relevant datasource."""
+    # """Route a user query to the most relevant datasource."""
 
+    # datasource: Literal["rag", "chatbot"] = Field(
+    #     ...,
+    #     description="Given a user query, route it to either the RAG model or the chatbot.",
+    # )
     datasource: Literal["rag", "chatbot"] = Field(
         ...,
         description="Given a user query, route it to either the RAG model or the chatbot.",
