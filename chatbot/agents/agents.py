@@ -38,7 +38,7 @@ class Agent:
             tools=self.tools,
         )
 
-    async def invoke(self, query_role, query, description=None):
+    async def invoke(self, query_role, query):
 
         chat_session = self.model.start_chat(history=[])
         chat_session.append_message(query_role, query)

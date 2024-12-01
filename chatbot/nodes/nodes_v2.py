@@ -121,6 +121,13 @@ def tooling(state):
         agent_model="gemini-flash-8b",
     )
 
+    response = Tooling.invoke(query_role=state["role"], query=state["action_steps"])
+
+    return {
+        "next": response["next"],
+        "tooling_parameters": response["tooling_parameters"],
+    }
+
 
 def metadata_index(state):
     """
