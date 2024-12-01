@@ -10,6 +10,8 @@ class Agent:
         agent_name,
         agent_prompt,
         agent_model,
+        tools,
+        streaming=False,
         temperature=1,
         top_p=0.95,
         top_k=40,
@@ -19,6 +21,8 @@ class Agent:
         self.agent_name = agent_name
         self.agent_prompt = agent_prompt
         self.agent_model = agent_model
+        self.streaming = streaming
+        self.tools = tools
         self.generation_config = {
             "temperature": temperature,
             "top_p": top_p,
@@ -30,15 +34,21 @@ class Agent:
             model_name=self.agent_model,
             generation_config=self.generation_config,
             system_instruction=self.agent_prompt,
+            streaming=self.streaming,
+            tools=self.tools,
         )
 
-    def invoke(self, query_role, query):
+    async def invoke(self, query_role, query, description=None):
 
         chat_session = self.model.start_chat(history=[])
-        # append the user query to the chat session
         chat_session.append_message(query_role, query)
 
-        # generate a response
-        response = chat_session.send_message(query)
-        # append the response to the chat session
+        if self.streaming == False:
+            response = chat_session.send_message(query)
+            return response
+
+        elif self.streaming == True:
+            response_chunk = await chat_session.send_message(query)
+            response += response_chunk
+
         chat_session.append_message(self.agent_name, response)

@@ -39,6 +39,11 @@ class AgenticGraphState(TypedDict):
         documents: list of documents
     """
 
-    user_id: str
+    user_metadata: dict
     next: str
-    description: str
+    role: str
+    query: str
+    message: str
+    action_steps: str
+    pdf: str
+    video: str
