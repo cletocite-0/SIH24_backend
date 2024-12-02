@@ -29,6 +29,6 @@ typing_extensions==4.12.2
 uvicorn==0.32.1
 websockets==13.0.1
 whisper==1.1.10
+google-generative-ai==0.3.3
 google-auth-httplib2==0.1.0
 email-validator==2.1.0
-https://github.com/GoogleCloudPlatform/generative-ai
