@@ -29,3 +29,4 @@ typing_extensions==4.12.2
 uvicorn==0.32.1
 websockets==13.0.1
 whisper==1.1.10
+google-generative-ai==0.3.3
