@@ -16,7 +16,7 @@ numpy==1.24.3
 openai_whisper==20231117
 pdfminer.six==20231228
 pdfplumber==0.11.4
-protobuf==5.29.0
+protobuf==3.20.3
 pydantic==2.10.2
 PyJWT==2.10.1
 PyPDF2==3.0.1
