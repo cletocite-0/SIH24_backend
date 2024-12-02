@@ -31,4 +31,4 @@ websockets==13.0.1
 whisper==1.1.10
 google-auth-httplib2==0.1.0
 email-validator==2.1.0
-git+https://github.com/google/generative-ai.git
+https://github.com/GoogleCloudPlatform/generative-ai
