@@ -21,6 +21,13 @@ from nodes.nodes import (
 def graph():
     workflow = StateGraph(AgenticGraphState)
 
+    tools = [
+        "meeting_shu",
+        "generate_image_graph",
+        "send_email",
+        "update_knowledge_graph",
+    ]
+
     # Deine the nodes
     workflow.add_node("response_generator", response_generator)
     workflow.add_node("axel", axel)
@@ -58,6 +65,19 @@ def graph():
     )
 
     workflow.add_conditional_edges("tooling", lambda x: x["next"])
+
+    workflow.add_edge(tools, "reviewer")
+
+    workflow.add_conditional_edges(
+        "reviewer",
+        lambda x: x["next"],
+        {
+            "response_generator": "response_generator",
+            "update_knowledge_graph": "update_knowledge_graph",
+            "master_agent": "master_agent",
+            "axel": "axel",
+        },
+    )
 
     workflow.add_edge("response_generator", END)
 

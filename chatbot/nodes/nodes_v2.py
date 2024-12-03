@@ -101,7 +101,7 @@ def reviewer(state):
     )
 
     if state["pdf"] != None:
-        pass
+        pdf_text = extract_pdf_text(state["pdf"])
 
     response = Reviewer.invoke(query_role=state["role"], query=state["message"])
 

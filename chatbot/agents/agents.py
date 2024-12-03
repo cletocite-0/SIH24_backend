@@ -1,7 +1,10 @@
 import google.generativeai as genai
 import os
+import dotenv
 
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+dotenv.load_dotenv()
+
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 class Agent:

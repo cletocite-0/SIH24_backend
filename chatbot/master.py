@@ -11,7 +11,9 @@ import uvicorn
 from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
-from graph.graph import graph
+
+# from graph.graph import graph
+from graph.graph_v2 import graph
 from dotenv import load_dotenv
 import os
 from jose import JWTError
@@ -241,8 +243,7 @@ async def receive_message(
                     bot_reply += chunk  # Append each chunk to bot_reply
                     print(chunk)
                     yield chunk
-                    
-            
+
             connection = get_db_connection()
             cursor = connection.cursor()
             # After streaming, insert bot's reply into the database
