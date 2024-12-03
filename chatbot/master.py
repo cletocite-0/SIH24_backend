@@ -20,6 +20,11 @@ from pydantic import BaseModel
 from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from fastapi.responses import Response
+
+
 
 app = FastAPI()
 
@@ -45,22 +50,22 @@ app.add_middleware(
 #     "database": "sihfinale",
 # }
 
-# db_config = {
-#     "user": "unfnny1o9zn09z9a",
-#     "password": "Yzfw1C8GG1k0H4w0aiEb",
-#     "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
-#     "database": "b1urg5hqy4fizvsrfabz",
-# }
+db_config = {
+    "user": "root",
+    "password": "idhika",
+    "host": "localhost",
+    "database": "sihfinale",
+}
 
 # Load environment variables from the .env file
 load_dotenv()
 
-db_config = {
-    "user": os.getenv("MYSQL_ADDON_USER"),
-    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-    "host": os.getenv("MYSQL_ADDON_HOST"),
-    "database": os.getenv("MYSQL_ADDON_DB"),
-}
+# db_config = {
+#     "user": os.getenv("MYSQL_ADDON_USER"),
+#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+#     "host": os.getenv("MYSQL_ADDON_HOST"),
+#     "database": os.getenv("MYSQL_ADDON_DB"),
+# }
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
@@ -92,6 +97,17 @@ class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
 
+class Update2FAStatus(BaseModel):
+    email: str
+    g_2fa_status: bool
+
+class UpdateEmailStatus(BaseModel):
+    email: str
+    em_retrieval_status: bool
+    app_password: str
+
+
+
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -119,7 +135,6 @@ def create_access_token(data: dict):
     token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
     print(f"Generated JWT: {token}")
     return token
-
 
 # Dependency to get current user based on the token
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -396,7 +411,100 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
 
     return {"sessions": [session["session_title"] for session in sessions]}
 
+@app.post("/update-2fa-status")
+async def update_2fa_status(request: Update2FAStatus):
+    try:
+        print(f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}")
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # Update query
+        cursor.execute(
+            "UPDATE users SET g_2fa_status = %s WHERE email = %s",
+            (int(request.g_2fa_status), request.email),  # Convert bool to int (0 or 1)
+        )
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            print(f"No user found with email: {request.email}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        print(f"2FA status updated successfully for email: {request.email}")
+        return {"message": "2FA status updated successfully"}
+    
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        connection.close()
+
+@app.post("/update-email-retrieval-status")
+async def update_email_retrieval_status(request: UpdateEmailStatus):
+    try:
+        print(f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}")
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # Update query
+        cursor.execute(
+            "UPDATE users SET em_retrieval_status = %s, app_password=%s WHERE email = %s",
+             (int(request.em_retrieval_status), request.app_password  ,request.email), 
+              # Convert bool to int (0 or 1)
+        )
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            print(f"No user found with email: {request.email}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        print(f"Email Status updated successfully for email: {request.email}")
+        return {"message": "Email status updated successfully"}
+    
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        connection.close()
+
+@app.get("/download_chat/{name}")
+async def download_chat(name: str):
+    # Step 1: Fetch messages from the database
+    connection = get_db_connection()  # Replace with your DB connection
+    cursor = connection.cursor()
+    cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
+    messages = cursor.fetchall()
+    connection.close()
+
+    # Step 2: Generate PDF
+    pdf_buffer = BytesIO()
+    pdf = canvas.Canvas(pdf_buffer)
+    pdf.drawString(100, 800, "Chat Conversation")  # Title
+    y = 780
+    for sender, text, timestamp in messages:
+        pdf.drawString(50, y, f"{timestamp} - {sender}: {text}")
+        y -= 20  # Adjust line height
+        if y < 50:  # Prevent text overflow
+            pdf.showPage()
+            y = 800
+
+    pdf.save()
+    pdf_buffer.seek(0)
+
+    # Step 3: Send PDF as a response
+    headers = {
+        'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
+    }
+    return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
+
+
+
+
+
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
+
