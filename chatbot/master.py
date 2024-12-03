@@ -50,22 +50,22 @@ app.add_middleware(
 #     "database": "sihfinale",
 # }
 
-db_config = {
-    "user": "root",
-    "password": "idhika",
-    "host": "localhost",
-    "database": "sihfinale",
-}
+# db_config = {
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # Load environment variables from the .env file
 load_dotenv()
 
-# db_config = {
-#     "user": os.getenv("MYSQL_ADDON_USER"),
-#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-#     "host": os.getenv("MYSQL_ADDON_HOST"),
-#     "database": os.getenv("MYSQL_ADDON_DB"),
-# }
+db_config = {
+    "user": os.getenv("MYSQL_ADDON_USER"),
+    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+    "host": os.getenv("MYSQL_ADDON_HOST"),
+    "database": os.getenv("MYSQL_ADDON_DB"),
+}
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
