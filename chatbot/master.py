@@ -152,6 +152,20 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 # Login endpoint
+# @app.post("/login")
+# async def login(request: LoginRequest):
+#     user = get_user_by_email(request.email)
+#     if not user:
+#         raise HTTPException(status_code=400, detail="Invalid email or password")
+
+#     # Check if the password matches the one in the database
+#     if request.password != user["password"]:
+#         raise HTTPException(status_code=400, detail="Invalid email or password")
+
+#     # Generate a JWT token
+#     token = create_access_token({"sub": user["email"]})
+#     print(f"Token sent to client: {token}")  # Log the token before returning
+#     return {"access_token": token, "token_type": "bearer"}
 @app.post("/login")
 async def login(request: LoginRequest):
     user = get_user_by_email(request.email)
@@ -164,8 +178,23 @@ async def login(request: LoginRequest):
 
     # Generate a JWT token
     token = create_access_token({"sub": user["email"]})
-    print(f"Token sent to client: {token}")  # Log the token before returning
-    return {"access_token": token, "token_type": "bearer"}
+
+    # Include user data in the response
+    user_data = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "position": user["position"],
+        "g_2fa_status": user["g_2fa_status"],
+        "em_retrieval_status": user["em_retrieval_status"],
+        "app_password": user["app_password"]
+    }
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_data": user_data  # Attach user data here
+    }
 
 
 # Route to generate a new session ID
