@@ -1,7 +1,7 @@
 import google.generativeai as genai
 
 from agents.agents import Agent
-from prompts.prompts import Enum
+from prompts.prompts import Prompt
 
 from utils.utils import extract_pdf_text
 
@@ -16,9 +16,10 @@ async def response_generator(state):
     Returns:
         dict: A dictionary containing the generated response.
     """
-    model = genai.GenerativeModel("gemini-pro", streaming=True)
-    response_draft = state["query"] + state["message"]
+    model = genai.GenerativeModel("gemini-pro", generation_config={"stream": True})
+    response_draft = "just say hi bruh"
     response_chunk = await model.generate_content(response_draft)
+    response_chunk = response_chunk.text.strip()
     return {"response": response_chunk}
 
 
@@ -34,26 +35,16 @@ def axel(state):
     """
     Axel = Agent(
         agent_name="Axel",
-        agent_prompt=Enum.AXEL.value,
+        agent_prompt=Prompt.AXEL.value,
         agent_model="gemini-1.5-flash-8b",
-        tools=[
-            genai.protos.Tool(
-                google_search_retrieval=genai.protos.GoogleSearchRetrieval(
-                    genai.protos.DynamicRetrievalConfig(
-                        mode=genai.protos.DynamicRetrievalConfig.Mode.MODE_DYNAMIC,
-                        dynamic_threshold=0.3,
-                    )
-                ),
-            ),
-        ],
     )
 
     response = Axel.invoke(
-        query_role=state["role"],
-        query=state["query"],
+        query_role="user",
+        query=state["question"],
     )
 
-    return {"next": response["next"], "message": response["message"]}
+    return {"next": "response_generator", "message": response, "role": "axel"}
 
 
 def master_agent(state):
@@ -68,7 +59,7 @@ def master_agent(state):
     """
     MasterAgent = Agent(
         agent_name="Master Agent",
-        agent_prompt=Enum.MASTER_AGENT.value,
+        agent_prompt=Prompt.MASTER_AGENT.value,
         agent_model="gemini-1.5-pro",
     )
 
@@ -96,7 +87,7 @@ def reviewer(state):
     """
     Reviewer = Agent(
         agent_name="Reviewer",
-        agent_prompt=Enum.REVIEWER.value,
+        agent_prompt=Prompt.REVIEWER.value,
         agent_model="gemini-1.5-pro",
     )
 
@@ -117,7 +108,7 @@ def tooling(state):
     """
     Tooling = Agent(
         agent_name="Tooling",
-        agent_prompt=Enum.TOOLING.value,
+        agent_prompt=Prompt.TOOLING.value,
         agent_model="gemini-flash-8b",
     )
 

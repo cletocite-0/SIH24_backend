@@ -42,7 +42,7 @@ class AgenticGraphState(TypedDict):
     user_metadata: dict
     next: str
     role: str
-    query: str
+    question: str
     message: str
     action_steps: str
     pdf: str
