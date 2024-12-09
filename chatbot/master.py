@@ -32,11 +32,6 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Depends, Form, File, UploadFile, HTTPException
-from fastapi.responses import StreamingResponse
-from typing import Optional
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
 
 app = FastAPI()
 
@@ -44,28 +39,37 @@ app = FastAPI()
 os.makedirs("files", exist_ok=True)
 os.makedirs("videos", exist_ok=True)
 
-# Define allowed origins
-origins = [
-    "http://localhost:5173",  # Local development
-    "http://192.168.31.169:5173",
-]
+# CORS configuration
+# origins = ["http://localhost:5173"]
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
-)
+origins = [
+    "http://localhost:5173",  
+    "http://localhost:8080"
+]
 
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=["*"],  # Allows requests from any origin
+#     allow_origins=origins,
 #     allow_credentials=True,
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows requests from any origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# MySQL configuration
+# db_config = {
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 db_config = {
     "user": "root",
@@ -243,11 +247,11 @@ class QueryRequest(BaseModel):
 #     print("Query received")
 #     connection = get_db_connection()
 
-    # # Create session title based on the question
-    # booltitle = 1
-    # if booltitle:
-    #     booltitle = 0
-    #     session_tit = question[0:15]
+#     # Create session title based on the question
+#     booltitle = 1
+#     if booltitle:
+#         booltitle = 0
+#         session_tit = question[0:15]
 
 #     if not connection:
 #         raise HTTPException(status_code=500, detail="Failed to connect to the database")
@@ -304,8 +308,8 @@ class QueryRequest(BaseModel):
 #                     yield chunk
                     
             
-            # connection = get_db_connection()
-            # cursor = connection.cursor()
+#             connection = get_db_connection()
+#             cursor = connection.cursor()
 #             # After streaming, insert bot's reply into the database
 #             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
 #             cursor.execute(
@@ -321,19 +325,18 @@ class QueryRequest(BaseModel):
 #         cursor.close()
 #         connection.close()
 
-executor = ThreadPoolExecutor(max_workers=10) 
-
 @app.post("/query")
 async def receive_message(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),  # Ensure the user is authenticated
     user_id: str = Form(...),
     question: str = Form(...),
-    name: str = Form(...),
+    name: str = Form(...),  # Receive user name
     pdf: Optional[UploadFile] = File(None),
     video: Optional[UploadFile] = File(None),
 ):
     graph_app = graph()
     print(f"Query received from user: {name}")
+    connection = get_db_connection()
 
     # Create session title based on the question
     booltitle = 1
@@ -341,77 +344,76 @@ async def receive_message(
         booltitle = 0
         session_tit = question[0:15]
 
-    def save_file(uploaded_file: UploadFile, folder: str):
-        file_path = os.path.join(folder, uploaded_file.filename)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.file.read())
-        return file_path
+    if not connection:
+        raise HTTPException(status_code=500, detail="Failed to connect to the database")
 
-    async def process_request():
-        try:
-            connection = await asyncio.to_thread(get_db_connection)  # Offload DB connection to a thread
+    try:
+        cursor = connection.cursor()
+
+        # Insert the user's message into the database
+        user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(
+            user_message_query, ("1", session_tit, "user", question, name)
+        )  # Use authenticated user's name
+        connection.commit()
+        print("DB UPDATED")
+
+        file_path = None
+        video_path = None
+        # Access the uploaded files
+        if pdf:
+            file_path = os.path.join("_files", pdf.filename)
+            with open(file_path, "wb") as f:
+                content = await pdf.read()  # Read the file content asynchronously
+                f.write(content)
+
+            print(f"PDF content received and saved to {file_path}.")
+
+        if video:
+            video_path = os.path.join("_videos", video.filename)
+            with open(video_path, "wb") as f:
+                content = await video.read()  # Read the video content asynchronously
+                f.write(content)
+
+            print(f"Video content received and saved to {video_path}.")
+
+        config = {"configurable": {"thread_id": "2"}}
+        bot_reply = ""  # Initialize bot_reply as an empty string
+
+        async def event_stream():
+            nonlocal bot_reply  # Access the bot_reply string
+            async for event in graph_app.astream_events(
+                {
+                    "user_id": user_id,
+                    "question": question,
+                    "pdf": file_path,
+                    "video": video_path,
+                },
+                version="v1",
+                config=config,
+            ):
+                if event["event"] == "on_chat_model_stream":
+                    chunk = event["data"]["chunk"].content
+                    bot_reply += chunk  # Append each chunk to bot_reply
+                    print(chunk)
+                    yield chunk
+
+            connection = get_db_connection()
             cursor = connection.cursor()
-
-            # Insert user's message into the database
-            await asyncio.to_thread(
-                cursor.execute,
-                "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)",
-                ("1", session_tit, "user", question, name),
-            )
+            # After streaming, insert bot's reply into the database
+            bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+            cursor.execute(
+                bot_message_query, ("1", session_tit, "bot", bot_reply, name)
+            )  # Use authenticated user's name
             connection.commit()
 
-            file_path, video_path = None, None
-            if pdf:
-                file_path = await asyncio.to_thread(save_file, pdf, "_files")
-                print(f"PDF saved to {file_path}")
-            if video:
-                video_path = await asyncio.to_thread(save_file, video, "_videos")
-                print(f"Video saved to {video_path}")
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-            config = {"configurable": {"thread_id": "2"}}
-            bot_reply = ""
-
-            async def event_stream():
-                nonlocal bot_reply
-                async for event in graph_app.astream_events(
-                    {
-                        "user_id": user_id,
-                        "question": question,
-                        "pdf": file_path,
-                        "video": video_path,
-                    },
-                    version="v1",
-                    config=config,
-                ):
-                    if event["event"] == "on_chat_model_stream":
-                        chunk = event["data"]["chunk"].content
-                        bot_reply += chunk
-                        print(chunk)
-                        yield chunk
-
-                connection = get_db_connection()
-                cursor = connection.cursor()
-
-                # Insert bot reply into the database
-                await asyncio.to_thread(
-                    cursor.execute,
-                    "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)",
-                    ("1", session_tit, "bot", bot_reply, name),
-                )
-                connection.commit()
-
-            return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-        except mysql.connector.Error as e:
-            raise HTTPException(status_code=500, detail=f"Database error: {e}")
-        finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
-
-    # Use asyncio to process the request concurrently
-    return await process_request()
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @app.get("/messages/{session_id}")
@@ -752,4 +754,4 @@ async def remove_webhook(webhook_path: str):
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
-    uvicorn.run("master:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
