@@ -11,7 +11,15 @@ import uvicorn
 from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
-from graph.graph import graph
+import requests
+import json
+from bs4 import BeautifulSoup
+
+from utils.utils import add_route, remove_route, get_cloudid, fetch_page_content
+from utils.webhook_listeners import *
+
+# from graph.graph import graph
+from graph.graph_v2 import graph
 from dotenv import load_dotenv
 import os
 from jose import JWTError
@@ -660,6 +668,66 @@ async def download_chat(name: str):
         'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
     }
     return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
+
+class WebhookPayload(BaseModel):
+    eventType: str = None
+    page: dict = None
+
+
+@app.post("/confluence-webhook")
+async def handle_confluence_webhook(payload: WebhookPayload):
+    if not payload:
+        raise HTTPException(status_code=400, detail="No payload provided")
+
+    event_type = payload.eventType
+
+    if event_type == "page_created":
+        page_info = payload.page or {}
+        page_id = page_info.get("id")
+        page_title = page_info.get("title")
+        print(f"New Page Created: {page_title}")
+
+        if page_id:
+            cloudid = get_cloudid()
+            if cloudid:
+                content = fetch_page_content(cloudid, page_id)
+                if content:
+                    print(f"Page Content: {content}")
+                else:
+                    print("Failed to fetch page content.")
+            else:
+                print("Failed to retrieve cloudid.")
+
+    print(
+        "Full Webhook Payload:", json.dumps(payload.dict(), indent=2)
+    )  # Using json.dumps for formatted output
+    return {"status": "received"}
+
+
+@app.post("/configure")
+async def configure_webhook(trigger_name: str):
+    webhook_path = f"/webhook/{trigger_name}"  # Unique webhook path
+    try:
+        add_route(
+            app, webhook_path, trigger_name, method_name=f"{trigger_name}_listener"
+        )
+        return {
+            "message": f"{trigger_name} Webhook configured",
+            "webhook_url": webhook_path,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# An API endpoint to remove a webhook listener
+@app.post("/remove")
+async def remove_webhook(webhook_path: str):
+    try:
+        remove_route(app, webhook_path)
+        return {"message": f"{webhook_path} Webhook removed"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
