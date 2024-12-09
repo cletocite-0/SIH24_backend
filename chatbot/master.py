@@ -500,7 +500,7 @@ async def update_email_retrieval_status(request: UpdateEmailStatus):
 @app.get("/download_chat/{name}")
 async def download_chat(name: str):
     # Step 1: Fetch messages from the database
-    connection = get_db_connection()  # Replace with your DB connection
+    connection = get_db_connection()
     cursor = connection.cursor()
     cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
     messages = cursor.fetchall()
@@ -509,14 +509,35 @@ async def download_chat(name: str):
     # Step 2: Generate PDF
     pdf_buffer = BytesIO()
     pdf = canvas.Canvas(pdf_buffer)
-    pdf.drawString(100, 800, "Chat Conversation")  # Title
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(100, 800, f"Chat Conversation: {name}")  # Title
     y = 780
+    line_height = 15
+    max_width = 450  # Adjust max width for wrapping text
+
+    def wrap_text(text, max_width, pdf):
+        """Wraps text to fit within the max_width on the PDF."""
+        lines = []
+        while text:
+            line = text
+            while pdf.stringWidth(line) > max_width and " " in line:
+                line = line[:line.rfind(" ")]  # Break line at the last space
+            lines.append(line.strip())
+            text = text[len(line):].strip()
+        return lines
+
     for sender, text, timestamp in messages:
-        pdf.drawString(50, y, f"{timestamp} - {sender}: {text}")
-        y -= 20  # Adjust line height
-        if y < 50:  # Prevent text overflow
-            pdf.showPage()
-            y = 800
+        formatted_message = f"{datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')} - {sender}: {text}"
+        wrapped_text = wrap_text(formatted_message, max_width, pdf)
+
+        for line in wrapped_text:
+            pdf.drawString(50, y, line)
+            y -= line_height
+            if y < 50:  # Prevent text overflow and add a new page
+                pdf.showPage()
+                pdf.setFont("Helvetica", 10)
+                pdf.drawString(100, 800, f"Chat Conversation: {name} (continued)")
+                y = 780
 
     pdf.save()
     pdf_buffer.seek(0)
@@ -526,8 +547,6 @@ async def download_chat(name: str):
         'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
     }
     return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
-
-
 
 
 
