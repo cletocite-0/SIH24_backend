@@ -2,6 +2,7 @@ import random
 import subprocess
 import tempfile
 from typing import Callable
+from urllib.parse import quote_plus
 import uuid
 import PyPDF2
 from bs4 import BeautifulSoup
@@ -17,7 +18,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import google.generativeai as genai
 import requests
-from io import BytesIO
 import json
 import websockets
 import firebase_admin
@@ -53,6 +53,20 @@ bucket = storage.bucket()
 # Atlassian API credentials
 Atlassian_api_url = os.getenv("ATLASSIAN_API_URL")
 Access_token = os.getenv("ACCESS_TOKEN")
+
+
+def obtain_mongo_uri():
+    print("")
+    username = "cletus"
+    password = "#Cletus112"
+
+    print("Encoding Username and Password\n")
+    encoded_username = quote_plus(username)
+    encoded_password = quote_plus(password)
+
+    mongo_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@cluster0.lppb9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+
+    return mongo_uri
 
 
 def get_jina_embeddings(texts):
@@ -277,43 +291,6 @@ def create_graph(instructions, file_path):
         # Ensure the temporary file is removed even if an error occurs
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-
-
-# app is mutable and so changes are reflected in master.py
-# optional to return app
-def add_route(app: FastAPI, path: str, method: Callable, method_name: str):
-    """Add a route dynamically to the FastAPI app."""
-    if path in active_routes:
-        raise ValueError(f"Route {path} is already active.")
-
-    # Create a new router for isolation
-    router = APIRouter()
-
-    # Add the route to the router
-    router.add_api_route(path, method, methods=["POST"], name=method_name)
-
-    # Include the router in the app
-    app.include_router(router)
-
-    # Store route info
-    active_routes[path] = router
-
-
-def remove_route(app: FastAPI, path: str):
-    """Remove a route dynamically from the FastAPI app."""
-    if path not in active_routes:
-        raise ValueError(f"Route {path} is not active.")
-
-    # Get the router associated with the path
-    router = active_routes[path]
-
-    # Remove the router from the app
-    app.router.routes = [
-        route for route in app.router.routes if route not in router.routes
-    ]
-
-    # Remove it from the registry
-    del active_routes[path]
 
 
 def get_cloudid():
