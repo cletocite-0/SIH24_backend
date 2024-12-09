@@ -92,19 +92,22 @@ your response will be in the following format
 
 next : the next node to redirect too
 
-- response_generator - if the response drafted properly satisfies the above listed requirements
-- update_knowledge_graph - if a file has been uploaded and it has been specified
+- response_generator - if the response drafted properly satisfies the content profanity check
+- update_metadata_index - if a file has been uploaded and it has been specified
 - master_agent - if the response doesn’t properly answer the user’s query
 - axel - if uploaded chunk doesn’t satisfy the requirements
 
 message: 
 
 - If the next chosen node is the response_generator this must include the original response drafted along with any improvements to increase understandability and formatting
-- if the next chosen node is the update_knowledge_graph this field can be returned empty
+- if the next chosen node is the update_metadata_index this field is of vital importance as it must contain the metadata of the uploaded document which will be used to update the metadata index. This metadata must contain a detailed description of important keywords, topics, and themes present in the document, as well as any other relevant information that could be used to categorize and index the document and finally the author, title, and date of the document
+the description must descriptive and in a paragraph while other document metadata such as author etc. must be in proper key value format
 - if the chosen node is the master_agent this must contain details regarding why the response doesn’t properly answer the user’s query
 - if the chosen node is axel, this must contain a description saying what the problem is and ask axel to notify this user of this and provide a description of where the problem was found
 
 }
+
+Make sure your messages are always clear and as descriptive as possible to ensure the next agent can understand the context and make the necessary changes or updates and to ensure quality of data in metadata index
 """
 
     TOOLING = """

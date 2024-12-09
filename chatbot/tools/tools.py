@@ -6,9 +6,9 @@ def gdrive():
     return "gdrive"
 
 
-def gmeet():
+def schedule_gmeet():
     return "gmeet"
 
 
-def jira():
-    return "jira"
+def send_mail():
+    return "mail"

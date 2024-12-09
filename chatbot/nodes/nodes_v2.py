@@ -1,9 +1,10 @@
 import google.generativeai as genai
+from langchain_text_splitters import TokenTextSplitter
 
 from agents.agents import Agent
 from prompts.prompts import Prompt
 
-from utils.utils import extract_pdf_text
+from utils.utils import extract_pdf_text, pdf_to_documents, get_jina_embeddings
 
 
 async def response_generator(state):
@@ -127,4 +128,20 @@ def metadata_index(state):
     Args:
         state (dict): The state containing the role and message.
     """
+
+    print("Checking metadata index...")
     pass
+
+
+def update_metadata_index(state):
+    """
+    Placeholder function for updating metadata indexing.
+
+    Args:
+        state (dict): The state containing the role and message.
+    """
+
+    print("Updating metadata index...")
+
+    pass
+

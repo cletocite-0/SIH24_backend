@@ -1,8 +1,12 @@
 import random
 import subprocess
 import tempfile
+from typing import Callable
 import uuid
 import PyPDF2
+from bs4 import BeautifulSoup
+from fastapi import APIRouter, FastAPI
+import pdfplumber
 import requests
 import os, dotenv
 from langchain_community.document_loaders import YoutubeLoader
@@ -19,7 +23,10 @@ import websockets
 import firebase_admin
 from firebase_admin import credentials, storage
 
+active_routes = {}
 
+
+# Load environment variables from .env file
 dotenv.load_dotenv()
 
 # driver = GraphDatabase.driver(
@@ -42,6 +49,10 @@ firebase_admin.initialize_app(cred, {"storageBucket": "host-graph-image.appspot.
 
 # Access the storage bucket
 bucket = storage.bucket()
+
+# Atlassian API credentials
+Atlassian_api_url = os.getenv("ATLASSIAN_API_URL")
+Access_token = os.getenv("ACCESS_TOKEN")
 
 
 def get_jina_embeddings(texts):
@@ -211,6 +222,17 @@ def extract_pdf_text(pdf_path):
         return text
 
 
+def pdf_to_documents(pdf_path):
+    documents = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            raw_text = page.extract_text()
+            if raw_text:
+                document = Document(page_content=raw_text)
+                documents.append(document)
+    return documents
+
+
 def upload_to_firebase(file_path, bucket_name):
     # Generate a unique file name using UUID
     unique_file_name = f"graphs/{uuid.uuid4().hex}.png"
@@ -255,3 +277,96 @@ def create_graph(instructions, file_path):
         # Ensure the temporary file is removed even if an error occurs
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+
+# app is mutable and so changes are reflected in master.py
+# optional to return app
+def add_route(app: FastAPI, path: str, method: Callable, method_name: str):
+    """Add a route dynamically to the FastAPI app."""
+    if path in active_routes:
+        raise ValueError(f"Route {path} is already active.")
+
+    # Create a new router for isolation
+    router = APIRouter()
+
+    # Add the route to the router
+    router.add_api_route(path, method, methods=["POST"], name=method_name)
+
+    # Include the router in the app
+    app.include_router(router)
+
+    # Store route info
+    active_routes[path] = router
+
+
+def remove_route(app: FastAPI, path: str):
+    """Remove a route dynamically from the FastAPI app."""
+    if path not in active_routes:
+        raise ValueError(f"Route {path} is not active.")
+
+    # Get the router associated with the path
+    router = active_routes[path]
+
+    # Remove the router from the app
+    app.router.routes = [
+        route for route in app.router.routes if route not in router.routes
+    ]
+
+    # Remove it from the registry
+    del active_routes[path]
+
+
+def get_cloudid():
+    """Fetch the cloudid for your Atlassian instance."""
+    url = f"{Atlassian_api_url}/oauth/token/accessible-resources"
+    headers = {"Authorization": f"Bearer {Access_token}", "Accept": "application/json"}
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        resources = response.json()
+        for resource in resources:
+            if (
+                resource["name"] == "bhuvanannamalai73"
+            ):  # Replace with your Confluence instance name
+                print("cloud id :", resource["id"])
+                return resource["id"]
+    else:
+        print(
+            f"Failed to fetch cloudid. Status Code: {response.status_code}, Response: {response.text}"
+        )
+    return None
+
+
+def fetch_page_content(cloudid, page_id):
+    """Fetch the page content using cloudid and parse it with BeautifulSoup."""
+    url = f"{Atlassian_api_url}/ex/confluence/{cloudid}/rest/api/content/{page_id}?expand=body.storage"
+    headers = {"Authorization": f"Bearer {Access_token}", "Accept": "application/json"}
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            html_content = (
+                data.get("body", {})
+                .get("storage", {})
+                .get("value", "No content available")
+            )
+
+            # Parse the HTML content using BeautifulSoup
+            soup = BeautifulSoup(html_content, "html.parser")
+
+            # Extract and clean the content as needed
+            for script in soup(["script", "style"]):
+                script.decompose()
+
+            cleaned_html = str(soup)
+            print(f"Page Content Response (cleaned): {cleaned_html}")  # Debugging line
+            return cleaned_html  # Return the cleaned HTML or text as needed
+        else:
+            print(
+                f"Failed to fetch page content. Status Code: {response.status_code}, Response: {response.text}"
+            )
+    except Exception as e:
+        print(f"Error while fetching page content: {e}")
+
+    return None
