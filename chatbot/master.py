@@ -28,6 +28,10 @@ from pydantic import BaseModel
 from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -36,10 +40,24 @@ os.makedirs("files", exist_ok=True)
 os.makedirs("videos", exist_ok=True)
 
 # CORS configuration
-origins = ["http://localhost:5173"]
+# origins = ["http://localhost:5173"]
+
+origins = [
+    "http://localhost:5173",  
+    "http://localhost:8080"
+]
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allows requests from any origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,22 +71,22 @@ app.add_middleware(
 #     "database": "sihfinale",
 # }
 
-# db_config = {
-#     "user": "unfnny1o9zn09z9a",
-#     "password": "Yzfw1C8GG1k0H4w0aiEb",
-#     "host": "b1urg5hqy4fizvsrfabz-mysql.services.clever-cloud.com",
-#     "database": "b1urg5hqy4fizvsrfabz",
-# }
+db_config = {
+    "user": "root",
+    "password": "CowTheGreat",
+    "host": "localhost",
+    "database": "sihfinale",
+}
 
 # Load environment variables from the .env file
 load_dotenv()
 
-db_config = {
-    "user": os.getenv("MYSQL_ADDON_USER"),
-    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-    "host": os.getenv("MYSQL_ADDON_HOST"),
-    "database": os.getenv("MYSQL_ADDON_DB"),
-}
+# db_config = {
+#     "user": os.getenv("MYSQL_ADDON_USER"),
+#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+#     "host": os.getenv("MYSQL_ADDON_HOST"),
+#     "database": os.getenv("MYSQL_ADDON_DB"),
+# }
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
@@ -100,6 +118,15 @@ class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
 
+class Update2FAStatus(BaseModel):
+    email: str
+    g_2fa_status: bool
+
+class UpdateEmailStatus(BaseModel):
+    email: str
+    em_retrieval_status: bool
+    app_password: str
+
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -128,7 +155,6 @@ def create_access_token(data: dict):
     print(f"Generated JWT: {token}")
     return token
 
-
 # Dependency to get current user based on the token
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -145,6 +171,24 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 # Login endpoint
+# @app.post("/login")
+# async def login(request: LoginRequest):
+#     user = get_user_by_email(request.email)
+#     if not user:
+#         raise HTTPException(status_code=400, detail="Invalid email or password")
+
+#     # Check if the password matches the one in the database
+#     if request.password != user["password"]:
+#         raise HTTPException(status_code=400, detail="Invalid email or password")
+
+#     # Generate a JWT token
+#     token = create_access_token({"sub": user["email"]})
+#     print(f"Token sent to client: {token}")  # Log the token before returning
+#     return {"access_token": token, "token_type": "bearer"}
+
+# Add state to store user data
+app.state.user_data = {}
+
 @app.post("/login")
 async def login(request: LoginRequest):
     user = get_user_by_email(request.email)
@@ -157,16 +201,29 @@ async def login(request: LoginRequest):
 
     # Generate a JWT token
     token = create_access_token({"sub": user["email"]})
-    print(f"Token sent to client: {token}")  # Log the token before returning
-    return {"access_token": token, "token_type": "bearer"}
 
+    # Include user data in the response
+    user_data = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "position": user["position"],
+        "g_2fa_status": user["g_2fa_status"],
+        "em_retrieval_status": user["em_retrieval_status"],
+        "app_password": user["app_password"]
+    }
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_data": user_data  # Attach user data here
+    }
 
 # Route to generate a new session ID
 @app.get("/session")
 async def generate_session():
     session_id = str(uuid.uuid4())
     return {"session_id": session_id}
-
 
 # Route to handle incoming messages and bot response
 class QueryRequest(BaseModel):
@@ -178,16 +235,107 @@ class QueryRequest(BaseModel):
     video: Optional[UploadFile] = None
 
 
+# @app.post("/query")
+# async def receive_message(
+#     user: dict = Depends(get_current_user),  # Ensure the user is authenticated
+#     user_id: str = Form(...),
+#     question: str = Form(...),
+#     pdf: Optional[UploadFile] = File(None),
+#     video: Optional[UploadFile] = File(None),
+# ):
+#     graph_app = graph()
+#     print("Query received")
+#     connection = get_db_connection()
+
+#     # Create session title based on the question
+#     booltitle = 1
+#     if booltitle:
+#         booltitle = 0
+#         session_tit = question[0:15]
+
+#     if not connection:
+#         raise HTTPException(status_code=500, detail="Failed to connect to the database")
+
+#     try:
+#         cursor = connection.cursor()
+
+#         # Insert the user's message into the database
+#         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+#         cursor.execute(
+#             user_message_query, ("1", session_tit, "user", question, "cow")
+#         )  # Use authenticated user's name
+#         connection.commit()
+#         print("DB UPDATED")
+
+#         file_path = None
+#         video_path = None
+#         # Access the uploaded files
+#         if pdf:
+#             file_path = os.path.join("_files", pdf.filename)
+#             with open(file_path, "wb") as f:
+#                 content = await pdf.read()  # Read the file content asynchronously
+#                 f.write(content)
+
+#             print(f"PDF content received and saved to {file_path}.")
+
+#         if video:
+#             video_path = os.path.join("_videos", video.filename)
+#             with open(video_path, "wb") as f:
+#                 content = await video.read()  # Read the video content asynchronously
+#                 f.write(content)
+
+#             print(f"Video content received and saved to {video_path}.")
+
+#         config = {"configurable": {"thread_id": "2"}}
+#         bot_reply = ""  # Initialize bot_reply as an empty string
+
+#         async def event_stream():
+#             nonlocal bot_reply  # Access the bot_reply string
+#             async for event in graph_app.astream_events(
+#                 {
+#                     "user_id": user_id,
+#                     "question": question,
+#                     "pdf": file_path,
+#                     "video": video_path,
+#                 },
+#                 version="v1",
+#                 config=config,
+#             ):
+#                 if event["event"] == "on_chat_model_stream":
+#                     chunk = event["data"]["chunk"].content
+#                     bot_reply += chunk  # Append each chunk to bot_reply
+#                     print(chunk)
+#                     yield chunk
+                    
+            
+#             connection = get_db_connection()
+#             cursor = connection.cursor()
+#             # After streaming, insert bot's reply into the database
+#             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
+#             cursor.execute(
+#                 bot_message_query, ("1", session_tit, "bot", bot_reply, "cow")
+#             )  # Use authenticated user's name
+#             connection.commit()
+
+#         return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+#     except mysql.connector.Error as e:
+#         raise HTTPException(status_code=500, detail=f"Database error: {e}")
+#     finally:
+#         cursor.close()
+#         connection.close()
+
 @app.post("/query")
 async def receive_message(
     user: dict = Depends(get_current_user),  # Ensure the user is authenticated
     user_id: str = Form(...),
     question: str = Form(...),
+    name: str = Form(...),  # Receive user name
     pdf: Optional[UploadFile] = File(None),
     video: Optional[UploadFile] = File(None),
 ):
     graph_app = graph()
-    print("Query received")
+    print(f"Query received from user: {name}")
     connection = get_db_connection()
 
     # Create session title based on the question
@@ -205,7 +353,7 @@ async def receive_message(
         # Insert the user's message into the database
         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(
-            user_message_query, ("1", session_tit, "user", question, "cow")
+            user_message_query, ("1", session_tit, "user", question, name)
         )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
@@ -255,7 +403,7 @@ async def receive_message(
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(
-                bot_message_query, ("1", session_tit, "bot", bot_reply, "cow")
+                bot_message_query, ("1", session_tit, "bot", bot_reply, name)
             )  # Use authenticated user's name
             connection.commit()
 
@@ -285,16 +433,49 @@ async def fetch_messages(session_id: str):
     return {"messages": messages}
 
 
-@app.get("/sessions")
-async def fetch_unique_sessions():
+# @app.get("/sessions")
+# async def fetch_unique_sessions():
+#     connection = get_db_connection()
+#     if not connection:
+#         raise HTTPException(status_code=500, detail="Failed to connect to the database")
+
+#     try:
+#         cursor = connection.cursor(dictionary=True)
+#         # Fetch unique session titles
+#         cursor.execute("SELECT DISTINCT session_title FROM messages")
+#         sessions = cursor.fetchall()
+
+#     except mysql.connector.Error as e:
+#         raise HTTPException(status_code=500, detail=f"Database error: {e}")
+#     finally:
+#         cursor.close()
+#         connection.close()
+
+#     return {"sessions": sessions}
+
+@app.post("/sessions")
+async def fetch_unique_sessions(request: Request):
+    # Parse the request body to get the user dictionary
+    try:
+        body = await request.json()
+        user = body.get("user", {})
+        user_name = user.get("name")  # Extract the user's name
+        print(f"Received user data: {user}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid request body: {e}")
+
+    if not user_name:
+        raise HTTPException(status_code=400, detail="User name is required")
+
     connection = get_db_connection()
     if not connection:
         raise HTTPException(status_code=500, detail="Failed to connect to the database")
 
     try:
         cursor = connection.cursor(dictionary=True)
-        # Fetch unique session titles
-        cursor.execute("SELECT DISTINCT session_title FROM messages")
+        # Use parameterized query to safely include the user name
+        query = "SELECT DISTINCT session_title FROM messages WHERE name = %s"
+        cursor.execute(query, (user_name,))
         sessions = cursor.fetchall()
 
     except mysql.connector.Error as e:
@@ -403,6 +584,92 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
 
     return {"sessions": [session["session_title"] for session in sessions]}
 
+@app.post("/update-2fa-status")
+async def update_2fa_status(request: Update2FAStatus):
+    try:
+        print(f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}")
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # Update query
+        cursor.execute(
+            "UPDATE users SET g_2fa_status = %s WHERE email = %s",
+            (int(request.g_2fa_status), request.email),  # Convert bool to int (0 or 1)
+        )
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            print(f"No user found with email: {request.email}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        print(f"2FA status updated successfully for email: {request.email}")
+        return {"message": "2FA status updated successfully"}
+    
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        connection.close()
+
+@app.post("/update-email-retrieval-status")
+async def update_email_retrieval_status(request: UpdateEmailStatus):
+    try:
+        print(f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}")
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # Update query
+        cursor.execute(
+            "UPDATE users SET em_retrieval_status = %s, app_password=%s WHERE email = %s",
+             (int(request.em_retrieval_status), request.app_password  ,request.email), 
+              # Convert bool to int (0 or 1)
+        )
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            print(f"No user found with email: {request.email}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        print(f"Email Status updated successfully for email: {request.email}")
+        return {"message": "Email status updated successfully"}
+    
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        connection.close()
+
+@app.get("/download_chat/{name}")
+async def download_chat(name: str):
+    # Step 1: Fetch messages from the database
+    connection = get_db_connection()  # Replace with your DB connection
+    cursor = connection.cursor()
+    cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
+    messages = cursor.fetchall()
+    connection.close()
+
+    # Step 2: Generate PDF
+    pdf_buffer = BytesIO()
+    pdf = canvas.Canvas(pdf_buffer)
+    pdf.drawString(100, 800, "Chat Conversation")  # Title
+    y = 780
+    for sender, text, timestamp in messages:
+        pdf.drawString(50, y, f"{timestamp} - {sender}: {text}")
+        y -= 20  # Adjust line height
+        if y < 50:  # Prevent text overflow
+            pdf.showPage()
+            y = 800
+
+    pdf.save()
+    pdf_buffer.seek(0)
+
+    # Step 3: Send PDF as a response
+    headers = {
+        'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
+    }
+    return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
 
 class WebhookPayload(BaseModel):
     eventType: str = None
