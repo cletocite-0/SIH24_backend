@@ -24,6 +24,7 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
+import requests
 
 app = FastAPI()
 
@@ -65,7 +66,7 @@ app.add_middleware(
 
 db_config = {
     "user": "root",
-    "password": "CowTheGreat",
+    "password": "idhika",
     "host": "localhost",
     "database": "sihfinale",
 }
@@ -118,6 +119,8 @@ class UpdateEmailStatus(BaseModel):
     email: str
     em_retrieval_status: bool
     app_password: str
+class Confluence(BaseModel):
+    code: str 
 
 
 # Database query function to get the user by email
@@ -160,6 +163,26 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
+    
+def get_access_token(code:str):
+    """
+    Exchange the authorization code for an access token.
+    """
+    token_url = "https://auth.atlassian.com/oauth/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": os.getenv("CLIENT_ID"),
+        "client_secret": os.getenv("CLIENT_SECRET"),
+        "code": code,
+        "redirect_uri": os.getenv("REDIRECT_URI"),
+    }
+
+    response = requests.post(token_url, json=payload)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.json())
+    
+    return response.json()["access_token"]
+
 
 
 # Login endpoint
@@ -683,6 +706,19 @@ async def download_chat(name: str):
         'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
     }
     return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
+
+@app.get("/callback")
+def callback(code: str):
+    """
+    Callback endpoint to handle OAuth redirect, fetch access token, and query pages.
+    """
+    # Step 1: Exchange the authorization code for an access token
+    access_token = get_access_token(code)
+    print("access token = ", access_token)
+
+    user_data = localStorage.getItem('user_data')
+    user_id = json.loads(user_data).get('id')
+
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
