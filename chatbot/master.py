@@ -29,6 +29,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import requests
 
 app = FastAPI()
 
@@ -70,7 +71,7 @@ app.add_middleware(
 
 db_config = {
     "user": "root",
-    "password": "CowTheGreat",
+    "password": "idhika",
     "host": "localhost",
     "database": "sihfinale",
 }
@@ -123,6 +124,8 @@ class UpdateEmailStatus(BaseModel):
     email: str
     em_retrieval_status: bool
     app_password: str
+class Confluence(BaseModel):
+    code: str 
 
 # Define the request body schema
 class ActionData(BaseModel):
@@ -182,6 +185,26 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
+    
+def get_access_token(code:str):
+    """
+    Exchange the authorization code for an access token.
+    """
+    token_url = "https://auth.atlassian.com/oauth/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "client_id": os.getenv("CLIENT_ID"),
+        "client_secret": os.getenv("CLIENT_SECRET"),
+        "code": code,
+        "redirect_uri": os.getenv("REDIRECT_URI"),
+    }
+
+    response = requests.post(token_url, json=payload)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.json())
+    
+    return response.json()["access_token"]
+
 
 
 # Login endpoint
@@ -617,66 +640,6 @@ async def download_chat(name: str):
         'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
     }
     return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
-
-class WebhookPayload(BaseModel):
-    eventType: str = None
-    page: dict = None
-
-
-@app.post("/confluence-webhook")
-async def handle_confluence_webhook(payload: WebhookPayload):
-    if not payload:
-        raise HTTPException(status_code=400, detail="No payload provided")
-
-    event_type = payload.eventType
-
-    if event_type == "page_created":
-        page_info = payload.page or {}
-        page_id = page_info.get("id")
-        page_title = page_info.get("title")
-        print(f"New Page Created: {page_title}")
-
-        if page_id:
-            cloudid = get_cloudid()
-            if cloudid:
-                content = fetch_page_content(cloudid, page_id)
-                if content:
-                    print(f"Page Content: {content}")
-                else:
-                    print("Failed to fetch page content.")
-            else:
-                print("Failed to retrieve cloudid.")
-
-    print(
-        "Full Webhook Payload:", json.dumps(payload.dict(), indent=2)
-    )  # Using json.dumps for formatted output
-    return {"status": "received"}
-
-
-@app.post("/configure")
-async def configure_webhook(trigger_name: str):
-    webhook_path = f"/webhook/{trigger_name}"  # Unique webhook path
-    try:
-        add_route(
-            app, webhook_path, trigger_name, method_name=f"{trigger_name}_listener"
-        )
-        return {
-            "message": f"{trigger_name} Webhook configured",
-            "webhook_url": webhook_path,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# An API endpoint to remove a webhook listener
-@app.post("/remove")
-async def remove_webhook(webhook_path: str):
-    try:
-        remove_route(app, webhook_path)
-        return {"message": f"{webhook_path} Webhook removed"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
