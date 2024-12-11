@@ -62,19 +62,19 @@ app.add_middleware(
 )
 
 # MySQL configuration
-# db_config = {
-#     "user": "root",
-#     "password": "CowTheGreat",
-#     "host": "localhost",
-#     "database": "sihfinale",
-# }
-
 db_config = {
     "user": "root",
-    "password": "idhika",
+    "password": "CowTheGreat",
     "host": "localhost",
     "database": "sihfinale",
 }
+
+# db_config = {
+#     "user": "root",
+#     "password": "idhika",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -290,8 +290,6 @@ async def receive_message(
     if booltitle:
         booltitle = 0
         session_tit = question[0:15]
-
-    print(uploaded_file.filename)
 
     def save_file(uploaded_file: UploadFile, folder: str):
         file_path = os.path.join(folder, uploaded_file.filename)
