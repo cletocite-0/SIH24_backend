@@ -57,19 +57,19 @@ app.add_middleware(
 )
 
 # MySQL configuration
-# db_config = {
-#     "user": "root",
-#     "password": "CowTheGreat",
-#     "host": "localhost",
-#     "database": "sihfinale",
-# }
-
 db_config = {
     "user": "root",
-    "password": "idhika",
+    "password": "CowTheGreat",
     "host": "localhost",
     "database": "sihfinale",
 }
+
+# db_config = {
+#     "user": "root",
+#     "password": "idhika",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -372,6 +372,10 @@ async def receive_message(
         )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
+
+        # Ensure directories for file storage exist
+        os.makedirs("_files", exist_ok=True)
+        os.makedirs("_videos", exist_ok=True)
 
         file_path = None
         video_path = None
