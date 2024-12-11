@@ -4,6 +4,7 @@ import tempfile
 from typing import Callable
 from urllib.parse import quote_plus
 import uuid
+import json
 import PyPDF2
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, FastAPI
@@ -347,3 +348,20 @@ def fetch_page_content(cloudid, page_id):
         print(f"Error while fetching page content: {e}")
 
     return None
+
+
+def parse_json_string(json_string):
+    """
+    Parses a JSON-formatted string into a Python dictionary.
+
+    Args:
+        json_string (str): The JSON-formatted string.
+
+    Returns:
+        dict: The parsed dictionary.
+    """
+    if json_string.startswith("```json"):
+        json_string = json_string.replace("```json", "")
+        json_string = json_string.replace("```", "")
+    parsed_dict = json.loads(json_string)
+    return parsed_dict

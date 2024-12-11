@@ -1,10 +1,17 @@
+import os
 import google.generativeai as genai
+from langchain_groq import ChatGroq
 from langchain_text_splitters import TokenTextSplitter
 
 from agents.agents import Agent
 from prompts.prompts import Prompt
 
-from utils.utils import extract_pdf_text, pdf_to_documents, get_jina_embeddings
+from utils.utils import (
+    extract_pdf_text,
+    pdf_to_documents,
+    get_jina_embeddings,
+    parse_json_string,
+)
 
 
 async def response_generator(state):
@@ -17,11 +24,26 @@ async def response_generator(state):
     Returns:
         dict: A dictionary containing the generated response.
     """
-    model = genai.GenerativeModel("gemini-pro", generation_config={"stream": True})
-    response_draft = "just say hi bruh"
-    response_chunk = await model.generate_content(response_draft)
-    response_chunk = response_chunk.text.strip()
-    return {"response": response_chunk}
+    # model = genai.GenerativeModel("gemini-pro", generation_config={"stream": True})
+    # response_draft = "just say hi bruh"
+    # chat_session = model.start_chat(history=[])
+    # response = chat_session.send_message(response_draft, stream=True)
+    # for chunk in response:
+    #     print(chunk.text)
+    #     yield chunk.text
+
+    print("response_generator invoked")
+
+    model = ChatGroq(
+        temperature=0,
+        model_name="gemma2-9b-it",
+        api_key=os.environ["GROQ_API_KEY"],
+        streaming=True,
+    )
+
+    print(state["message"])
+    response = await model.ainvoke(state["message"])
+    return {"generation": response}
 
 
 def axel(state):
@@ -34,18 +56,33 @@ def axel(state):
     Returns:
         dict: A dictionary containing the next action and message.
     """
+    print("Axel invoked")
+    if state["pdf"] != None:
+        print("Upload has been detected")
+        return {
+            "next": "reviewer",
+            "message": "I have detected an upload, Reviewer please assess the document.",
+            "role": "axel",
+        }
+
     Axel = Agent(
         agent_name="Axel",
         agent_prompt=Prompt.AXEL.value,
-        agent_model="gemini-1.5-flash-8b",
+        agent_model="gemini-1.5-flash",
     )
 
     response = Axel.invoke(
         query_role="user",
         query=state["question"],
     )
+    print(response.text)
+    response = parse_json_string(response.text)
 
-    return {"next": "response_generator", "message": response, "role": "axel"}
+    return {
+        "next": response["next"],
+        "message": response["message"],
+        "role": "axel",
+    }
 
 
 def master_agent(state):
@@ -58,6 +95,7 @@ def master_agent(state):
     Returns:
         dict: A dictionary containing the next action, message, and optionally action steps.
     """
+    print("Master Agent invoked")
     MasterAgent = Agent(
         agent_name="Master Agent",
         agent_prompt=Prompt.MASTER_AGENT.value,
@@ -66,6 +104,10 @@ def master_agent(state):
 
     response = MasterAgent.invoke(query_role=state["role"], query=state["message"])
 
+    print(response.text)
+    response = parse_json_string(response.text)
+    print(response)
+
     if response["next"] == "tooling":
         return {
             "next": response["next"],
@@ -73,7 +115,11 @@ def master_agent(state):
             "action_steps": response["action_steps"],
         }
 
-    return {"next": response["next"], "message": response["message"]}
+    return {
+        "next": response["next"],
+        "message": response["message"],
+        "role": "master_agent",
+    }
 
 
 def reviewer(state):
@@ -86,18 +132,26 @@ def reviewer(state):
     Returns:
         dict: A dictionary containing the next action and message.
     """
+    print("Reviewer invoked")
     Reviewer = Agent(
         agent_name="Reviewer",
         agent_prompt=Prompt.REVIEWER.value,
         agent_model="gemini-1.5-pro",
     )
 
+    query = state["message"]
     if state["pdf"] != None:
         pdf_text = extract_pdf_text(state["pdf"])
+        query = "DOCUMENT HAS BEEN UPLOADED. PLEASE REVIEW THE DOCUMENT." + pdf_text
 
-    response = Reviewer.invoke(query_role=state["role"], query=state["message"])
+    response = Reviewer.invoke(query_role=state["role"], query=query)
 
-    return {"next": response["next"], "message": response["message"]}
+    response = parse_json_string(response.text)
+    return {
+        "next": response["next"],
+        "message": response["message"],
+        "role": "reviewer",
+    }
 
 
 def tooling(state):
@@ -107,6 +161,7 @@ def tooling(state):
     Args:
         state (dict): The state containing the role and message.
     """
+    print("Tooling invoked")
     Tooling = Agent(
         agent_name="Tooling",
         agent_prompt=Prompt.TOOLING.value,
@@ -115,6 +170,8 @@ def tooling(state):
 
     response = Tooling.invoke(query_role=state["role"], query=state["action_steps"])
 
+    print(response.text)
+    response = parse_json_string(response.text)
     return {
         "next": response["next"],
         "tooling_parameters": response["tooling_parameters"],
@@ -143,5 +200,15 @@ def update_metadata_index(state):
 
     print("Updating metadata index...")
 
-    pass
 
+def update_knowledge_graph(state):
+    """
+    Placeholder function for updating the knowledge graph.
+
+    Args:
+        state (dict): The state containing the role and message.
+    """
+
+    print("Updating knowledge graph...")
+    
+    

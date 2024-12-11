@@ -47,3 +47,4 @@ class AgenticGraphState(TypedDict):
     action_steps: str
     pdf: str
     video: str
+    generation: str

@@ -15,7 +15,8 @@ import requests
 import json
 from bs4 import BeautifulSoup
 
-from utils.utils import add_route, remove_route, get_cloudid, fetch_page_content
+from utils.utils import get_cloudid, fetch_page_content
+from utils.dynamic_routing import add_route, remove_route
 from utils.webhook_listeners import *
 
 # from graph.graph import graph
@@ -42,10 +43,7 @@ os.makedirs("videos", exist_ok=True)
 # CORS configuration
 # origins = ["http://localhost:5173"]
 
-origins = [
-    "http://localhost:5173",  
-    "http://localhost:8080"
-]
+origins = ["http://localhost:5173", "http://localhost:8080"]
 
 # app.add_middleware(
 #     CORSMiddleware,
@@ -71,22 +69,22 @@ app.add_middleware(
 #     "database": "sihfinale",
 # }
 
-db_config = {
-    "user": "root",
-    "password": "CowTheGreat",
-    "host": "localhost",
-    "database": "sihfinale",
-}
+# db_config = {
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # Load environment variables from the .env file
 load_dotenv()
 
-# db_config = {
-#     "user": os.getenv("MYSQL_ADDON_USER"),
-#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-#     "host": os.getenv("MYSQL_ADDON_HOST"),
-#     "database": os.getenv("MYSQL_ADDON_DB"),
-# }
+db_config = {
+    "user": os.getenv("MYSQL_ADDON_USER"),
+    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+    "host": os.getenv("MYSQL_ADDON_HOST"),
+    "database": os.getenv("MYSQL_ADDON_DB"),
+}
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
@@ -118,9 +116,11 @@ class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
 
+
 class Update2FAStatus(BaseModel):
     email: str
     g_2fa_status: bool
+
 
 class UpdateEmailStatus(BaseModel):
     email: str
@@ -154,6 +154,7 @@ def create_access_token(data: dict):
     token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
     print(f"Generated JWT: {token}")
     return token
+
 
 # Dependency to get current user based on the token
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -189,6 +190,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 # Add state to store user data
 app.state.user_data = {}
 
+
 @app.post("/login")
 async def login(request: LoginRequest):
     user = get_user_by_email(request.email)
@@ -210,20 +212,22 @@ async def login(request: LoginRequest):
         "position": user["position"],
         "g_2fa_status": user["g_2fa_status"],
         "em_retrieval_status": user["em_retrieval_status"],
-        "app_password": user["app_password"]
+        "app_password": user["app_password"],
     }
 
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user_data": user_data  # Attach user data here
+        "user_data": user_data,  # Attach user data here
     }
+
 
 # Route to generate a new session ID
 @app.get("/session")
 async def generate_session():
     session_id = str(uuid.uuid4())
     return {"session_id": session_id}
+
 
 # Route to handle incoming messages and bot response
 class QueryRequest(BaseModel):
@@ -306,8 +310,8 @@ class QueryRequest(BaseModel):
 #                     bot_reply += chunk  # Append each chunk to bot_reply
 #                     print(chunk)
 #                     yield chunk
-                    
-            
+
+
 #             connection = get_db_connection()
 #             cursor = connection.cursor()
 #             # After streaming, insert bot's reply into the database
@@ -324,6 +328,7 @@ class QueryRequest(BaseModel):
 #     finally:
 #         cursor.close()
 #         connection.close()
+
 
 @app.post("/query")
 async def receive_message(
@@ -400,6 +405,7 @@ async def receive_message(
 
             connection = get_db_connection()
             cursor = connection.cursor()
+            print(bot_reply)
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(
@@ -452,6 +458,7 @@ async def fetch_messages(session_id: str):
 #         connection.close()
 
 #     return {"sessions": sessions}
+
 
 @app.post("/sessions")
 async def fetch_unique_sessions(request: Request):
@@ -584,10 +591,13 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
 
     return {"sessions": [session["session_title"] for session in sessions]}
 
+
 @app.post("/update-2fa-status")
 async def update_2fa_status(request: Update2FAStatus):
     try:
-        print(f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}")
+        print(
+            f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}"
+        )
         connection = get_db_connection()
         cursor = connection.cursor()
 
@@ -604,26 +614,29 @@ async def update_2fa_status(request: Update2FAStatus):
 
         print(f"2FA status updated successfully for email: {request.email}")
         return {"message": "2FA status updated successfully"}
-    
+
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     finally:
         connection.close()
+
 
 @app.post("/update-email-retrieval-status")
 async def update_email_retrieval_status(request: UpdateEmailStatus):
     try:
-        print(f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}")
+        print(
+            f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}"
+        )
         connection = get_db_connection()
         cursor = connection.cursor()
 
         # Update query
         cursor.execute(
             "UPDATE users SET em_retrieval_status = %s, app_password=%s WHERE email = %s",
-             (int(request.em_retrieval_status), request.app_password  ,request.email), 
-              # Convert bool to int (0 or 1)
+            (int(request.em_retrieval_status), request.app_password, request.email),
+            # Convert bool to int (0 or 1)
         )
         connection.commit()
 
@@ -633,20 +646,23 @@ async def update_email_retrieval_status(request: UpdateEmailStatus):
 
         print(f"Email Status updated successfully for email: {request.email}")
         return {"message": "Email status updated successfully"}
-    
+
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     finally:
         connection.close()
+
 
 @app.get("/download_chat/{name}")
 async def download_chat(name: str):
     # Step 1: Fetch messages from the database
     connection = get_db_connection()  # Replace with your DB connection
     cursor = connection.cursor()
-    cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
+    cursor.execute(
+        "SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,)
+    )
     messages = cursor.fetchall()
     connection.close()
 
@@ -666,10 +682,11 @@ async def download_chat(name: str):
     pdf_buffer.seek(0)
 
     # Step 3: Send PDF as a response
-    headers = {
-        'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
-    }
-    return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
+    headers = {"Content-Disposition": f'attachment; filename="chat_{name}.pdf"'}
+    return Response(
+        pdf_buffer.getvalue(), media_type="application/pdf", headers=headers
+    )
+
 
 class WebhookPayload(BaseModel):
     eventType: str = None

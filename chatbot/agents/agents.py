@@ -24,6 +24,7 @@ class Agent:
         self.agent_name = agent_name
         self.agent_prompt = agent_prompt
         self.agent_model = agent_model
+        self.stream = stream
         self.tools = tools
         self.generation_config = {
             "temperature": temperature,
@@ -31,7 +32,6 @@ class Agent:
             "top_k": top_k,
             "max_output_tokens": max_output_tokens,
             "response_mime_type": response_mime_type,
-            "stream": stream,
         }
         self.model = genai.GenerativeModel(
             model_name=self.agent_model,
@@ -40,17 +40,22 @@ class Agent:
             tools=self.tools,
         )
 
-    async def invoke(self, query_role, query):
+    def invoke(self, query_role, query):
 
         chat_session = self.model.start_chat(history=[])
-        chat_session.append_message(query_role, query)
+        # chat_session.append_message(query_role, query)
 
-        if self.streaming == False:
-            response = chat_session.send_message(query)
-            return response
+        # if self.stream == False:
+        #     print(response)
+        #     response = chat_session.send_message(query)
+        #     return response
 
-        elif self.streaming == True:
-            response_chunk = await chat_session.send_message(query)
-            response += response_chunk
-
-        chat_session.append_message(self.agent_name, response)
+        # elif self.stream == True:
+        #     response = chat_session.send_message(query, stream=True)
+        #     for chunk in response:
+        #         print(chunk.text)
+        #         yield (chunk.text)
+        response = chat_session.send_message(query)
+        print(response)
+        return response
+        # chat_session.append_message(self.agent_name, response)

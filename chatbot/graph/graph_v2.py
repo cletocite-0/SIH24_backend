@@ -59,6 +59,7 @@ def graph():
         "master_agent",
         lambda x: x["next"],
         {
+            "axel": "axel",
             "tooling": "tooling",
             "metadata_index": "metadata_index",
         },

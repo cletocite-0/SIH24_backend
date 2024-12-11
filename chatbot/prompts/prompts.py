@@ -38,14 +38,17 @@ Your final output must be in the form of a dictionary with the following structu
 next : 
 
 - contains the the path / node you wish to traverse
-    - either master_agent or user
+    - either master_agent or response_generator
 
 message : 
 
 - if your next path is the master agent this will contain the detailed description of the user’s query / request with additional guidelines / suggestions which you feel might improve the processing / accuracy of response
-- if your next path is the user this will contain a small guideline how you want the response to be drafted which you determined based on user's preferences or feedback 
+- if your next path is the response_generator this will contain a small guideline how you want the response to be drafted which you determined based on user's preferences or feedback 
+Do not include any emoji's or other unprofessional messages in your response and also emphasize this when sending your message to the response_generator
 
 }
+
+Return your output in the above format as a pure string without any json annotations ( without ``json ``` tag) for rendering so that it can be parsed by the json parser to route to next node
     """
 
     MASTER_AGENT = """
@@ -73,9 +76,8 @@ message :
 action_steps : 
 
 - return this only when your next node chosen is tooling
-- This must contain a list of the the tools which must be executed in-order to generate the response for user’s query along with the tooling description ( with parameters) with which will be given in the tool wiki
-- This tooling description must again be generated in the structured format given in the tool wiki
-
+- This tooling description must again be generated in the structured format given in the tool wiki 
+- give the json format as just key value pair no list in the json format
 }
 """
 
@@ -92,10 +94,10 @@ your response will be in the following format
 
 next : the next node to redirect too
 
-- response_generator - if the response drafted properly satisfies the content profanity check
-- update_metadata_index - if a file has been uploaded and it has been specified
+- response_generator - if the response drafted properly satisfies the content profanity check forward response to the response generator
+                    - or if the uploaded document doesn't follow the appropriate guidelines ( given above ), route to response_generator with a description of the problem
+- update_metadata_index - if a file has been uploaded, send contents of documents to be indexed to metadata
 - master_agent - if the response doesn’t properly answer the user’s query
-- axel - if uploaded chunk doesn’t satisfy the requirements
 
 message: 
 
@@ -144,79 +146,88 @@ parameters : {
 }
 
 }]
+    """
 
-## Action Tools
+    TOOL_WIKI = """
+    # Action Tools
 
-Google_Meet _Scheduling ( Gmeet ) : 
+    Google_Meet _Scheduling ( Gmeet ) : 
 
-node : gmeet
+    node : gmeet
 
-tool : This tool is used to schedule a google meet for the user and add it to his google calendar
+    tool : This tool is used to schedule a google meet for the user and add it to his google calendar
 
-required parameters : 
+    required parameters : 
 
-- attendees - list of attendees for the meeting
-- date_of_meeting ( Mont
-- time_of_meeting
-- subject
-- duration ( optional )
-- extra_information ( optional )
+    - attendees - list of attendees for the meeting
+    - date_of_meeting ( Mont
+    - time_of_meeting
+    - subject
+    - duration ( optional )
+    - extra_information ( optional )
 
-Reporting chain / hierarchy / team structure : 
+    Reporting chain / hierarchy / team structure : 
 
-node : hierarchy 
+    node : hierarchy 
 
-tool : This tool can be used to retrieve the reporting chain of the user or any other team
+    tool : This tool can be used to retrieve the reporting chain of the user or any other team
 
-required parameters : 
+    required parameters : 
 
-- person or team or workspace
+    - person or team or workspace
 
-Image Graph : 
+    Image Graph : 
 
-node : image_graph
+    node : image_graph
 
-tool : This tool can be used to return detailed visualizations ( plots ) of the pdfs uploaded by the user or any other specified document 
+    tool : This tool can be used to return detailed visualizations ( plots ) of the pdfs uploaded by the user or any other specified document 
 
-required parameters : 
+    required parameters : 
 
-graph_type ( optional, input from user otherwise will resort to default ) 
+    graph_type ( optional, input from user otherwise will resort to default ) 
 
-Send Email : 
+    Send Email : 
 
-node : send_email
+    node : send_email
 
-tool : This tool can be used to send or draft a mail to a receiver or number of receivers 
+    tool : This tool can be used to send or draft a mail to a receiver or number of receivers 
 
-required parameters : 
+    required parameters : 
 
-receiver_email ( one email or list of receiver emails )
+    receiver_email ( one email or list of receiver emails )
 
-email_draft ( content of the email as per user request or need )
+    email_draft ( content of the email as per user request or need )
 
-## Data Access
+    ## Data Access
 
-If in-order to reply to the user query additional knowledge or information is decided to be required then first fetch from metadata index to determine which datasource to query and extract relevant document from to answer user query
+    If in-order to reply to the user query additional knowledge or information is decided to be required then first fetch from metadata index to determine which datasource to query and extract relevant document from to answer user query
 
-Once decided use below datasource tools to access relevant document / information 
+    Once decided use below datasource tools to access relevant document / information 
 
-Confluence 
+    Confluence 
+    Tot
 
-node : confluence
+    node : confluence
+    reuired format :
+    {
+    next
+    message
+    "space" : 
 
-required parameters:
+    }
+    required parameters:
 
-- space
-- page
-- index
+    - space
+    - page
+    - index
 
-Notion 
+    Notion 
 
-node : notion
+    node : notion
 
-required parameters : 
+    required parameters : 
 
-- workspace
-- page
-- block_type
+    - workspace
+    - page
+    - block_type
     """
