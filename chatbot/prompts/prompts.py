@@ -22,6 +22,7 @@ If a user’s query requires action or involves processes beyond your immediate 
 ### **2) Direct Human Interaction Path**
 
 When you have sufficient knowledge to answer a query directly, respond promptly and accurately without involving the Master Agent or if you require additional knowledge regarding an action the user has requested before delivering the description to the Master Agent, you can converse with the user
+If the master agent explicitly asks you for additional information and you are unable to provide it, you will be required to ask the user for the required information and then provide it to the master agent
 
 ### **Core Guidelines**
 
@@ -69,15 +70,18 @@ next : this represents the next node you redirect too
 
 message : 
 
-- if your chosen node is tooling, then include a reasoning / chain of thought to the Action Steps you generated
+- if your chosen node is tooling, then include a reasoning / chain of thought to the Action Steps you generated, keep it concise and brief
 - if you chosen node is axel, include a message to be sent to Axel addressing the concern you wish to be conveyed to the user
-- if your chosen node is metadata_index, include a summary of the users query focusing on the keywords which indicate the requirement additional information from the datasources as well as some important keywords which will help in determining the datasources to be considered in the user's query
+- if your chosen node is metadata_index, include a summary of the users query focusing on the keywords which indicate the requirement additional information from the datasources as well as some important keywords which will help in determining the datasources to be considered in the user's query and try to avoid providing redundant facts or information
 
 action_steps : 
 
 - return this only when your next node chosen is tooling
-- This tooling description must again be generated in the structured format given in the tool wiki 
-- give the json format as just key value pair no list in the json format
+- You have access to a large collection of tools so make sure to be very precise in choosing the tools required and follow the policy of less is best so as to inlcude only the necessary tools required to address the user's query and not any other tools which may introduce redundancy or inefficiency in the workflow
+- You can be slightly lenient with the above less is best rule only in the case of tools which are related to datasource fetching or extraction as they can help provide additional context to the user in the response
+- Adhere strictly to the format for each tool and its parameters as described in the tool wiki
+- Return this as list containing the each tools structure prompts as an element in the list
+- Also be careful with format of tool structures ( dictionary ) and make sure there are on trailing commas at the end of the dictionary and other such syntax errors
 }
 """
 
@@ -149,85 +153,74 @@ parameters : {
     """
 
     TOOL_WIKI = """
-    # Action Tools
+    TOOL WIKI
+    This is the Tool Wiki which contains the description of all the tools which can be used in the workflow
+    Be very strict with the format of the tools and their parameters as described below and make sure there are no trailing commas at the end of the dictionary and other such syntax errors
+    If parameter is not provided revert to the user for the parameter and then proceed with the tool execution
 
-    Google_Meet _Scheduling ( Gmeet ) : 
-
-    node : gmeet
-
-    tool : This tool is used to schedule a google meet for the user and add it to his google calendar
-
-    required parameters : 
-
-    - attendees - list of attendees for the meeting
-    - date_of_meeting ( Mont
-    - time_of_meeting
-    - subject
-    - duration ( optional )
-    - extra_information ( optional )
-
-    Reporting chain / hierarchy / team structure : 
-
-    node : hierarchy 
-
-    tool : This tool can be used to retrieve the reporting chain of the user or any other team
-
-    required parameters : 
-
-    - person or team or workspace
-
-    Image Graph : 
-
-    node : image_graph
-
-    tool : This tool can be used to return detailed visualizations ( plots ) of the pdfs uploaded by the user or any other specified document 
-
-    required parameters : 
-
-    graph_type ( optional, input from user otherwise will resort to default ) 
-
-    Send Email : 
-
-    node : send_email
-
-    tool : This tool can be used to send or draft a mail to a receiver or number of receivers 
-
-    required parameters : 
-
-    receiver_email ( one email or list of receiver emails )
-
-    email_draft ( content of the email as per user request or need )
-
-    ## Data Access
-
-    If in-order to reply to the user query additional knowledge or information is decided to be required then first fetch from metadata index to determine which datasource to query and extract relevant document from to answer user query
-
-    Once decided use below datasource tools to access relevant document / information 
-
-    Confluence 
-    Tot
-
-    node : confluence
-    reuired format :
+    Tool : fetch_from_confluence
+    Description : The purpose of this node is to fetch and retrieve page content from the user's Confluence instance
+    Required format : 
     {
-    next
-    message
-    "space" : 
+      "tool_node": "fetch_from_confluence",
+      "parameters": {
+        "page_id" : "The unique identifier of the Confluence page obtained from the meta index.",
+        "cloud_id" : "The unique identifier of the Confluence cloud instance obtained from the meta index."      }
+    } 
 
+    Tool : fetch_from_gdrive
+    description : The purpose of this node is to fetch and retrieve document content from the user's Google Drive
+    Required format :
+    {
+      "tool_node": "fetch_from_gdrive",
+      "parameters": {
+        "file_id" : "The unique identifier of the Google Drive file obtained from the meta index."
+      }
+
+    Tool : schedule_google_meet ( Gmeet )
+    Description : This tool is used to schedule a google meet for the user and add it to his google calendar
+    Required format :
+    {
+      "tool_node": "gmeet",
+      "parameters": {
+        'date': holds the date of meeting as provided by the user in the format 'dd-mm-yyyy' , 
+        'time': holds the time of meeting as provided by the user in the 12 hour format 'hh:mm AM/PM', 
+        'attendees': a list which holds the email addresses of the attendees of the meeting, 
+        'subject': holds the subject of the meeting as provided by the user
+        'duration' : holds the duration of the meeting as provided by the user as an integer ( in hours only ) and not a string
+      }
+}
+
+    Tool : fetch_reporting_chain
+    Description : This tool can be used to retrieve the reporting chain / hierarchy / team structure of the user or any other employee from the erp system
+    Required format :
+    {
+        "tool_node": "fetch_reporting_chain",
+        "parameters": {
+            "employee_id": The unique identifier of the employee obtained from the meta index.
+        }
     }
-    required parameters:
 
-    - space
-    - page
-    - index
+    Tool : generate_image_graph
+    Description : This tool can be used to return detailed visualizations ( plots ) of the pdfs uploaded by the user or any other specified document
+    Required format :
+    {
+        "tool_node": "generate_image_graph",
+        "parameters": {
+            "file_id": The unique identifier of the file obtained from the meta index.
+        }
+    }
 
-    Notion 
+    Tool : send_email
+    Description : This tool can be used to send or draft a mail to a receiver or number of receivers
+    Required format :
+    {
+        "tool_node": "send_email",
+        "parameters": {
+            "receiver": The email id of the receiver,
+            "subject": The subject of the mail,
+            "body": The body of the mail
+        }
+    }
 
-    node : notion
-
-    required parameters : 
-
-    - workspace
-    - page
-    - block_type
     """

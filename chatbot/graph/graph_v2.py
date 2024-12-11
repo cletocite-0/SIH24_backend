@@ -17,15 +17,17 @@ from nodes.nodes import (
     update_knowledge_graph,
 )
 
+from tools.tools import gmeet, fetch_from_confluence, fetch_from_gdrive, send_mail
+
 
 def graph():
     workflow = StateGraph(AgenticGraphState)
 
     tools = [
-        "meeting_shu",
-        "generate_image_graph",
-        "send_email",
-        "update_knowledge_graph",
+        "fetch_from_confluence",
+        "fetch_from_gdrive",
+        "send_mail",
+        "gmeet",
     ]
 
     # Deine the nodes
@@ -37,10 +39,10 @@ def graph():
     workflow.add_node("metadata_index", metadata_index)
 
     # tool nodes
-    workflow.add_node("meeting_shu", meeting_shu)
-    workflow.add_node("generate_image_graph", generate_image_graph)
-    workflow.add_node("send_email", send_email)
-    workflow.add_node("update_knowledge_graph", update_knowledge_graph)
+    workflow.add_node("gmeet", gmeet)
+    workflow.add_node("fetch_from_confluence", fetch_from_confluence)
+    workflow.add_node("fetch_from_gdrive", fetch_from_gdrive)
+    workflow.add_node("send_mail", send_mail)
 
     # Build the graph and add the edges
     workflow.add_edge(START, "axel")
@@ -74,7 +76,6 @@ def graph():
         lambda x: x["next"],
         {
             "response_generator": "response_generator",
-            "update_knowledge_graph": "update_knowledge_graph",
             "master_agent": "master_agent",
             "axel": "axel",
         },

@@ -8,10 +8,10 @@ from prompts.prompts import Prompt
 
 from utils.utils import (
     extract_pdf_text,
-    pdf_to_documents,
-    get_jina_embeddings,
     parse_json_string,
 )
+
+from nodes.nodes import update_knowledge_graph
 
 
 async def response_generator(state):
@@ -98,7 +98,7 @@ def master_agent(state):
     print("Master Agent invoked")
     MasterAgent = Agent(
         agent_name="Master Agent",
-        agent_prompt=Prompt.MASTER_AGENT.value,
+        agent_prompt=Prompt.MASTER_AGENT.value + Prompt.TOOL_WIKI.value,
         agent_model="gemini-1.5-pro",
     )
 
@@ -150,6 +150,7 @@ def reviewer(state):
     return {
         "next": response["next"],
         "message": response["message"],
+        "pdf": state["pdf"],
         "role": "reviewer",
     }
 
@@ -162,19 +163,25 @@ def tooling(state):
         state (dict): The state containing the role and message.
     """
     print("Tooling invoked")
-    Tooling = Agent(
-        agent_name="Tooling",
-        agent_prompt=Prompt.TOOLING.value,
-        agent_model="gemini-flash-8b",
-    )
+    # Tooling = Agent(
+    #     agent_name="Tooling",
+    #     agent_prompt=Prompt.TOOLING.value,
+    #     agent_model="gemini-flash-8b",
+    # )
 
-    response = Tooling.invoke(query_role=state["role"], query=state["action_steps"])
+    # response = Tooling.invoke(query_role=state["role"], query=state["action_steps"])
 
-    print(response.text)
-    response = parse_json_string(response.text)
+    # print(response.text)
+    # response = parse_json_string(response.text)
+
+    tool_node_list = []
+    for tool_node in state["action_steps"]:
+        tool_node_list.append(tool_node["tool_node"])
+    print(tool_node_list)
+    print("LET'S EXECUTE THE TOOLING NODES")
     return {
-        "next": response["next"],
-        "tooling_parameters": response["tooling_parameters"],
+        "next": tool_node_list,
+        "tooling_parameters": state["action_steps"],
     }
 
 
@@ -210,5 +217,3 @@ def update_knowledge_graph(state):
     """
 
     print("Updating knowledge graph...")
-    
-    
