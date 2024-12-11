@@ -262,8 +262,13 @@ async def receive_message(
     graph_app = graph()
     print(f"Query received from user: {name}")
 
-    # Create session title
-    session_tit = question[:15]
+    # Create session title based on the question
+    booltitle = 1
+    if booltitle:
+        booltitle = 0
+        session_tit = question[0:15]
+
+    print(uploaded_file.filename)
 
     def save_file(uploaded_file: UploadFile, folder: str):
         file_path = os.path.join(folder, uploaded_file.filename)
