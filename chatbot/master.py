@@ -124,6 +124,23 @@ class UpdateEmailStatus(BaseModel):
     em_retrieval_status: bool
     app_password: str
 
+# Define the request body schema
+class ActionData(BaseModel):
+    source: str
+    action: str
+
+# Endpoint to handle triggers
+@app.post("/triggers")
+async def handle_triggers(data: ActionData):
+    if not data.source or not data.action:
+        raise HTTPException(status_code=400, detail="Source and Action are required.")
+
+    print("Received data:")
+    print(f"Source: {data.source}")
+    print(f"Action: {data.action}")
+
+    return {"message": "Data received successfully."}
+
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -231,99 +248,7 @@ class QueryRequest(BaseModel):
     pdf: Optional[UploadFile] = None
     video: Optional[UploadFile] = None
 
-
-# @app.post("/query")
-# async def receive_message(
-#     user: dict = Depends(get_current_user),  # Ensure the user is authenticated
-#     user_id: str = Form(...),
-#     question: str = Form(...),
-#     pdf: Optional[UploadFile] = File(None),
-#     video: Optional[UploadFile] = File(None),
-# ):
-#     graph_app = graph()
-#     print("Query received")
-#     connection = get_db_connection()
-
-#     # Create session title based on the question
-#     booltitle = 1
-#     if booltitle:
-#         booltitle = 0
-#         session_tit = question[0:15]
-
-#     if not connection:
-#         raise HTTPException(status_code=500, detail="Failed to connect to the database")
-
-#     try:
-#         cursor = connection.cursor()
-
-#         # Insert the user's message into the database
-#         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
-#         cursor.execute(
-#             user_message_query, ("1", session_tit, "user", question, "cow")
-#         )  # Use authenticated user's name
-#         connection.commit()
-#         print("DB UPDATED")
-
-#         file_path = None
-#         video_path = None
-#         # Access the uploaded files
-#         if pdf:
-#             file_path = os.path.join("_files", pdf.filename)
-#             with open(file_path, "wb") as f:
-#                 content = await pdf.read()  # Read the file content asynchronously
-#                 f.write(content)
-
-#             print(f"PDF content received and saved to {file_path}.")
-
-#         if video:
-#             video_path = os.path.join("_videos", video.filename)
-#             with open(video_path, "wb") as f:
-#                 content = await video.read()  # Read the video content asynchronously
-#                 f.write(content)
-
-#             print(f"Video content received and saved to {video_path}.")
-
-#         config = {"configurable": {"thread_id": "2"}}
-#         bot_reply = ""  # Initialize bot_reply as an empty string
-
-#         async def event_stream():
-#             nonlocal bot_reply  # Access the bot_reply string
-#             async for event in graph_app.astream_events(
-#                 {
-#                     "user_id": user_id,
-#                     "question": question,
-#                     "pdf": file_path,
-#                     "video": video_path,
-#                 },
-#                 version="v1",
-#                 config=config,
-#             ):
-#                 if event["event"] == "on_chat_model_stream":
-#                     chunk = event["data"]["chunk"].content
-#                     bot_reply += chunk  # Append each chunk to bot_reply
-#                     print(chunk)
-#                     yield chunk
-                    
-            
-            # connection = get_db_connection()
-            # cursor = connection.cursor()
-#             # After streaming, insert bot's reply into the database
-#             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
-#             cursor.execute(
-#                 bot_message_query, ("1", session_tit, "bot", bot_reply, "cow")
-#             )  # Use authenticated user's name
-#             connection.commit()
-
-#         return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-#     except mysql.connector.Error as e:
-#         raise HTTPException(status_code=500, detail=f"Database error: {e}")
-#     finally:
-#         cursor.close()
-#         connection.close()
-
 executor = ThreadPoolExecutor(max_workers=10)  # Allow up to 10 threads
-
 
 @app.post("/query")
 async def receive_message(
