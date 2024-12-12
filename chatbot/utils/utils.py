@@ -95,7 +95,7 @@ def get_jina_embeddings(texts):
         )
 
 
-def perform_similarity_search(query_embedding, user_type, user_id=None, top_k=10):
+def perform_similarity_search(query_embedding, user_type, user_id=None, top_k=5):
     with driver.session() as session:
         if user_type == "common":
             result = session.run(
@@ -294,7 +294,7 @@ def create_graph(instructions, file_path):
             os.remove(temp_file_path)
 
 
-def get_cloudid():
+def get_cloudid(Access_token):
     """Fetch the cloudid for your Atlassian instance."""
     url = f"{Atlassian_api_url}/oauth/token/accessible-resources"
     headers = {"Authorization": f"Bearer {Access_token}", "Accept": "application/json"}
@@ -315,7 +315,7 @@ def get_cloudid():
     return None
 
 
-def fetch_page_content(cloudid, page_id):
+def fetch_page_content(cloudid, page_id, Access_token):
     """Fetch the page content using cloudid and parse it with BeautifulSoup."""
     url = f"{Atlassian_api_url}/ex/confluence/{cloudid}/rest/api/content/{page_id}?expand=body.storage"
     headers = {"Authorization": f"Bearer {Access_token}", "Accept": "application/json"}

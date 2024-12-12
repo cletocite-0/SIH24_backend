@@ -19,6 +19,7 @@ from nodes.nodes import (
     check_uploads,
     generate_image_graph,
     hierachy,
+    stream,
 )
 
 
@@ -45,6 +46,7 @@ def graph():
     workflow.add_node("chatbot_rag_router", chatbot_rag_router)
     workflow.add_node("generate_image_graph", generate_image_graph)
     workflow.add_node("hierachy", hierachy)
+    workflow.add_node("stream", stream)
 
     # Build graph
     workflow.add_conditional_edges(
@@ -83,6 +85,8 @@ def graph():
     workflow.add_edge("schedule_meeting", END)
     workflow.add_edge("chatbot", END)
 
+    workflow.add_edge("generate", "stream")
+
     workflow.add_conditional_edges(
         "route_summarization_usernode",
         lambda x: x["next"],
@@ -95,7 +99,8 @@ def graph():
 
     workflow.add_edge("summarize", "generate")
 
-    workflow.set_finish_point("generate")
+    # workflow.set_finish_point("generate")
+    workflow.set_finish_point("stream")
     # workflow.set_finish_point("send_mail")
 
     # Compile

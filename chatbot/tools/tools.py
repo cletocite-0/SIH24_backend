@@ -67,7 +67,7 @@ def fetch_from_gdrive(params):
 
     def authenticate_google_drive():
         creds = None
-        pickel_file = "D:\\Studies\\Projects\\Hackathon\\SIH24\\SIH24_backend\\chatbot\\tools\\token.pickle"
+        pickel_file = r"C:\Users\rajku\OneDrive\Documents\ClePro\HACKATHON\SIH24_backend\chatbot\tools\token.pickle"
 
         if os.path.exists(pickel_file):
             with open(pickel_file, "rb") as token:
@@ -79,7 +79,7 @@ def fetch_from_gdrive(params):
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    "D:\\Studies\\Projects\\Hackathon\\SIH24\\SIH24_backend\\chatbot\\tools\\gdrive_search_cred.json",
+                    r"C:\Users\rajku\OneDrive\Documents\ClePro\HACKATHON\SIH24_backend\chatbot\tools\gdrive_search_cred.json",
                     SCOPES,
                 )
                 creds = flow.run_local_server(port=0)
@@ -137,8 +137,8 @@ def fetch_from_gdrive(params):
 
 def gmeet(details):
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
-    TOKEN_FILE = "D:\\Studies\\Projects\\Hackathon\\SIH24\\SIH24_backend\\chatbot\\tools\\token_meeting.pickle"
-    CREDENTIALS_FILE = "D:\\Studies\\Projects\\Hackathon\\SIH24\\SIH24_backend\\chatbot\\tools\\meeting_cred.json"
+    TOKEN_FILE = r"C:\Users\rajku\OneDrive\Documents\ClePro\HACKATHON\SIH24_backend\chatbot\tools\token_meeting.pickle"
+    CREDENTIALS_FILE = r"C:\Users\rajku\OneDrive\Documents\ClePro\HACKATHON\SIH24_backend\chatbot\tools\meeting_cred.json"
 
     def authenticate_google_calendar():
         creds = None

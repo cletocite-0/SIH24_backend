@@ -199,7 +199,7 @@ def neo4j_common_node(state):
     return {"documents": documents, "question": query}
 
 
-async def generate(state):
+def generate(state):
     """
     Generate answer from retrieved documentation.
 
@@ -210,21 +210,48 @@ async def generate(state):
         state (dict): New key added to state, generation, that contains LLM generation
     """
     print("---GENERATE---")
+    print("\n")
 
     # rag_chain = obtain_rag_chain()
     # # RAG generation
     # generation = rag_chain.invoke({"context": documents, "question": question})
 
     prompt = f"""
-    You are a helpful assistant with access to specific documents. Please follow these guidelines:
+You are a helpful assistant with access to specific documents. Please follow these guidelines:
     
-    0. **Output**: Should be descriptive with respect to the question in three (3) lines.
+    0. *Output*: Should be descriptive with respect to the question in minimum three (4) lines maximum to what the user has asked.
 
-    1. **Contextual Relevance**: Only provide answers based on the provided context. If the query does not relate to the context or if there is no relevant information, respond with "The query is not relevant to the provided context."
+    1. *Contextual Relevance*: Only provide answers based on the provided context. If the query does not relate to the context or if there is no relevant information, respond with "The query is not relevant to the provided context."
 
-    2. **Language and Behavior**: Ensure that your response is polite and respectful. Avoid using any inappropriate language or making offensive statements.
+    2. *Language and Behavior*: Ensure that your response is polite and respectful. Avoid using any inappropriate language or making offensive statements.
 
-    3. **Content Limitations**: Do not use or refer to any external data beyond the context provided.
+    3. *Content Limitations*: Do not use or refer to any external data beyond the context provided.
+
+
+Deliver your final response in the following format:
+References and links: Enclose all document references or links in square brackets, e.g., ["phrase from document"].
+Notes or highlights: Enclose important notes or highlights in dollar ssigns, e.g., $important highlight$.
+Make your response as concise and precise as possible, avoiding irrelevant or redundant content.
+Utilize custom markdown formatting effectively for better readability.
+Example Outputs:
+
+Query: "What are the key points about the Whisper policy?"
+Response:
+
+The Whisper policy emphasizes $data confidentiality and secure communication$.
+Refer to section 2.3 in the company guidelines ["Whisper Policy Document"].
+Query: "What are the main cybersecurity risks identified in the latest report?"
+Response:
+
+The top risks include $PDF-based vulnerabilities$ and $browser exploitation$.
+Detailed analysis is in ["Cybersecurity Annual Report 2024"].
+Query: "Summarize our document on meeting scheduling best practices."
+Response:
+
+Follow $standardized time slots for global teams$.
+Use $automated scheduling tools like GAIL Scheduler$.
+For details, see ["Meeting Scheduling Guide 2024"].
+    
 
     **Context**: {state['documents']}
 
@@ -232,20 +259,33 @@ async def generate(state):
 
     **Answer**:
 
-    Incase of Meeting summarizations I want you to summarize the meeting in a proper format and make it more readable and beautiful and also identify the key points of the meeting.
-
-    Return your answer in Markdown format with bolded headings, italics and underlines etc. as necessary.
-    Use as much markdown as possible to format your response.
-    Use ## for headings and ``` code blocks for code.
-    ```
     """
+    # model = ChatGroq(
+    #     temperature=0,
+    #     model_name="gemma2-9b-it",
+    #     api_key=os.environ["GROQ_API_KEY"],
+    #     streaming=True,
+    # )
+
+    # response = await model.ainvoke(prompt)
+    print(state["documents"])
+    model = genai.GenerativeModel("gemini-1.5-pro")
+    response = model.generate_content(prompt)
+    print(response)
+    return {"generation": response.text}
+
+
+async def stream(state):
     model = ChatGroq(
         temperature=0,
         model_name="gemma2-9b-it",
         api_key=os.environ["GROQ_API_KEY"],
         streaming=True,
     )
-
+    print(state["generation"])
+    prompt = f"""return the following text with no changes
+    {state['generation']}
+    """
     response = await model.ainvoke(prompt)
     return {"generation": response}
 
