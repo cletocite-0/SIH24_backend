@@ -14,6 +14,8 @@ from pdfminer.high_level import extract_text
 import requests
 import json
 from bs4 import BeautifulSoup
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import simpleSplit
 
 from utils.utils import get_cloudid, fetch_page_content
 from utils.dynamic_routing import add_route, remove_route
@@ -127,6 +129,35 @@ class UpdateEmailStatus(BaseModel):
     email: str
     em_retrieval_status: bool
     app_password: str
+
+class DeleteSessionRequest(BaseModel):
+    sessionTitle: str
+    user: Optional[dict]  # User data is optional
+
+@app.post("/deleteSession")
+async def delete_session(request: DeleteSessionRequest):
+    session_to_delete = request.sessionTitle
+    user_data = request.user
+
+    if not user_data or "name" not in user_data:
+        raise HTTPException(status_code=400, detail="User information is required")
+
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor()
+        query = "DELETE FROM messages WHERE session_title = %s AND name = %s"
+        cursor.execute(query, (session_to_delete, user_data["name"]))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Session not found or user not authorized")
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"message": f"Session '{session_to_delete}' deleted successfully"}
 
 @app.get("/user-stats/{username}")
 def get_user_stats(username: str):
@@ -712,35 +743,52 @@ async def update_email_retrieval_status(request: UpdateEmailStatus):
 
 @app.get("/download_chat/{name}")
 async def download_chat(name: str):
-    # Step 1: Fetch messages from the database
-    connection = get_db_connection()  # Replace with your DB connection
-    cursor = connection.cursor()
-    cursor.execute(
-        "SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,)
-    )
-    messages = cursor.fetchall()
-    connection.close()
+    try:
+        # Fetch messages
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
+        messages = cursor.fetchall()
 
-    # Step 2: Generate PDF
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Database error")
+    finally:
+        connection.close()
+
+    # Generate PDF
     pdf_buffer = BytesIO()
-    pdf = canvas.Canvas(pdf_buffer)
-    pdf.drawString(100, 800, "Chat Conversation")  # Title
+    pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(100, 800, f"Chat Conversation: {name}")
     y = 780
+    line_height = 15
+    max_width = 450  # Maximum width for the text
+
+    def wrap_text(text: str, max_width: int) -> List[str]:
+        """Wraps text into lines that fit within the max_width."""
+        from reportlab.lib.utils import simpleSplit
+        return simpleSplit(text, fontName="Helvetica", fontSize=10, maxWidth=max_width)
+
     for sender, text, timestamp in messages:
-        pdf.drawString(50, y, f"{timestamp} - {sender}: {text}")
-        y -= 20  # Adjust line height
-        if y < 50:  # Prevent text overflow
-            pdf.showPage()
-            y = 800
+        formatted_message = f"{timestamp.strftime('%Y-%m-%d %H:%M:%S')} - {sender}: {text}"
+        wrapped_lines = wrap_text(formatted_message, max_width)
+
+        for line in wrapped_lines:
+            pdf.drawString(50, y, line)
+            y -= line_height
+            if y < 50:  # Prevent text overflow and add a new page
+                pdf.showPage()
+                pdf.setFont("Helvetica", 10)
+                y = 780
 
     pdf.save()
     pdf_buffer.seek(0)
 
-    # Step 3: Send PDF as a response
-    headers = {"Content-Disposition": f'attachment; filename="chat_{name}.pdf"'}
-    return Response(
-        pdf_buffer.getvalue(), media_type="application/pdf", headers=headers
-    )
+    # Return response
+    headers = {
+        'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
+    }
+    return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
 
 
 class WebhookPayload(BaseModel):
