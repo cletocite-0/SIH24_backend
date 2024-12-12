@@ -69,22 +69,22 @@ app.add_middleware(
 #     "database": "sihfinale",
 # }
 
-# db_config = {
-#     "user": "root",
-#     "password": "CowTheGreat",
-#     "host": "localhost",
-#     "database": "sihfinale",
-# }
+db_config = {
+    "user": "root",
+    "password": "CowTheGreat",
+    "host": "localhost",
+    "database": "sihfinale",
+}
 
 # Load environment variables from the .env file
 load_dotenv()
 
-db_config = {
-    "user": os.getenv("MYSQL_ADDON_USER"),
-    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-    "host": os.getenv("MYSQL_ADDON_HOST"),
-    "database": os.getenv("MYSQL_ADDON_DB"),
-}
+# db_config = {
+#     "user": os.getenv("MYSQL_ADDON_USER"),
+#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+#     "host": os.getenv("MYSQL_ADDON_HOST"),
+#     "database": os.getenv("MYSQL_ADDON_DB"),
+# }
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
@@ -127,6 +127,50 @@ class UpdateEmailStatus(BaseModel):
     em_retrieval_status: bool
     app_password: str
 
+@app.get("/user-stats/{username}")
+def get_user_stats(username: str):
+    try:
+        # Establish database connection
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # Query to count unique session titles
+        unique_sessions_query = """
+            SELECT COUNT(DISTINCT session_title) AS unique_sessions
+            FROM messages
+            WHERE name = %s
+        """
+
+        print(username)
+        cursor.execute(unique_sessions_query, (username,))
+        unique_sessions_result = cursor.fetchone()
+
+        # Query to count total rows
+        total_rows_query = """
+            SELECT COUNT(*) AS total_rows
+            FROM messages
+            WHERE name = %s
+        """
+        cursor.execute(total_rows_query, (username,))
+        total_rows_result = cursor.fetchone()
+
+        print(total_rows_result)
+
+        # Close cursor and connection
+        cursor.close()
+        connection.close()
+
+        # Return the results
+        if unique_sessions_result and total_rows_result:
+            return {
+                "unique_sessions": unique_sessions_result["unique_sessions"],
+                "total_rows": total_rows_result["total_rows"],
+            }
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
 
 # Database query function to get the user by email
 def get_user_by_email(email: str):
@@ -329,6 +373,8 @@ class QueryRequest(BaseModel):
 #         cursor.close()
 #         connection.close()
 
+# Global variable to store session title
+global_session_title = None
 
 @app.post("/query")
 async def receive_message(
@@ -339,15 +385,23 @@ async def receive_message(
     pdf: Optional[UploadFile] = File(None),
     video: Optional[UploadFile] = File(None),
 ):
+
+    global global_session_title
+
     graph_app = graph()
     print(f"Query received from user: {name}")
     connection = get_db_connection()
 
     # Create session title based on the question
-    booltitle = 1
-    if booltitle:
-        booltitle = 0
-        session_tit = question[0:15]
+    # booltitle = 1
+    # if booltitle:
+    #     booltitle = 0
+    #     session_tit = question[0:15]
+
+    # Create session title only if it's not already set
+    if global_session_title is None:
+        global_session_title = question[:15]  # Use the first 15 characters of the question
+
 
     if not connection:
         raise HTTPException(status_code=500, detail="Failed to connect to the database")
@@ -358,7 +412,7 @@ async def receive_message(
         # Insert the user's message into the database
         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(
-            user_message_query, ("1", session_tit, "user", question, name)
+            user_message_query, ("1", global_session_title, "user", question, name)
         )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
@@ -409,7 +463,7 @@ async def receive_message(
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(
-                bot_message_query, ("1", session_tit, "bot", bot_reply, name)
+                bot_message_query, ("1", global_session_title, "bot", bot_reply, name)
             )  # Use authenticated user's name
             connection.commit()
 
@@ -750,4 +804,4 @@ async def remove_webhook(webhook_path: str):
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run("master:app", host="0.0.0.0", port=8080,reload=True)

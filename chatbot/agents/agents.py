@@ -8,7 +8,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 class Agent:
-    def _init_(
+    def __init__(
         self,
         agent_name,
         agent_prompt,
