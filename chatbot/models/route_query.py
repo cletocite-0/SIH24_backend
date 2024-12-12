@@ -13,9 +13,7 @@ dotenv.load_dotenv()
 class RouteQuery(BaseModel):
     """Route a user query to the most relevant datasource."""
 
-    datasource: Literal[
-        "common_node", "user_node", "tech_support", "schedule_meeting", "hierachy"
-    ] = Field(
+    datasource: Literal["common_node", "schedule_meeting", "hierachy"] = Field(
         ...,
         description="Given a user query route to either common node or current user node in knowledge graph or route question to tech_support node incase of a support related query or route it to schedule_meeting node incase of a meeting schedule request or route it to hierachy node incase of a hierachy related query",
     )
@@ -36,22 +34,18 @@ Follow these guidelines to make your decision:
 
 ### Route to "common_node" if:
 - The query is about general company policies, procedures, or global information.
+For queries about specific company information, internal data, reporting chains (hierarchy), meeting scheduling, personal user data, technical support requests, all cybersecurity-related questions (especially those involving PDF or browser exploitation), all GAIL-specific questions, or questions related to the Whisper policy.
+General LLM: For broad knowledge questions or tasks not requiring specific company or personal data. Route here only if the query can be efficiently answered with the chatbot's knowledge. If the user explicitly requests references or detailed sources, route the query to RAG instead.
 - The question relates to company-wide support, products, or service, or gail holidays.
 - The inquiry is about standard practices, regulations, or information that applies to all employees or departments.
 - The query doesn't mention or imply any user-specific context or technical issues.
-
-### Route to "user_node" if:
 - The query is about user-specific documents, data, or information.
 - The question relates to individual Quality Management System (QMS) data or processes.
 - The inquiry references personal projects, tasks, user-uploaded documents, or summaries.
 - The query involves user-specific reports (e.g., meeting queries, performance reports, or team reports).
 - The inquiry relates to user-specific or role-specific context, meetings, or interactions.
 
-### Route to "tech_support" if:
-- The query is about technical issues with company software, hardware, or systems.
-- The question relates to IT support, troubleshooting, or system access problems.
-- The inquiry is about raising tickets for technical issues or IT-related requests.
-- The query mentions specific technical terms, error messages, or IT processes.
+
 
 ### Route to "schedule_meeting" if:
 - The query is a request to schedule a meeting with a specific user or team.
@@ -68,18 +62,15 @@ your response should be:
 ### Examples:
 
 1. **"What is the company's vacation policy?"** -> common_node
-2. **"Can you show me the status of my current project?"** -> user_node
-3. **"How do I reset my password?"** -> tech_support
-4. **"What were the key points from the document I uploaded last week?"** -> user_node
+2. **"Can you show me the status of my current project?"** -> common_node
+4. **"What were the key points from the document I uploaded last week?"** -> common_node
 5. **"Who should I contact for HR-related questions?"** -> common_node
-6. **"My computer won't turn on, what should I do?"** -> tech_support
 7. **"What are the company's core values?"** -> common_node
-8. **"Can you summarize my performance review from last quarter?"** -> user_node
+8. **"Can you summarize my performance review from last quarter?"** -> common_node
 9. **"How do I connect to the company VPN?"** -> tech_support
-10. **"What's the process for requesting new software?"** -> tech_support
 11. **"Can you schedule a meeting with the marketing team for next week?"** -> schedule_meeting
 
-Your output should be either **"common_node"**, **"user_node"**, **"tech_support"**, or **"schedule_meeting"** based on your analysis of the user's query. Remember:
+Your output should be either **"common_node"**, or **"schedule_meeting"**`, **hierarchy** based on your analysis of the user's query. Remember:
 - Route to the common node for global, company-wide information.
 - Route to the user node for personalized, user-specific data.
 - Route to the tech support node for technical issues and IT-related queries.

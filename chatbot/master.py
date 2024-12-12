@@ -19,8 +19,9 @@ from utils.utils import get_cloudid, fetch_page_content
 from utils.dynamic_routing import add_route, remove_route
 from utils.webhook_listeners import *
 
-# from graph.graph import graph
-from graph.graph_v2 import graph
+from graph.graph import graph
+
+# from graph.graph_v2 import graph
 from dotenv import load_dotenv
 import os
 from jose import JWTError
@@ -699,7 +700,7 @@ async def handle_confluence_webhook(payload: WebhookPayload):
         raise HTTPException(status_code=400, detail="No payload provided")
 
     event_type = payload.eventType
-
+    ACCESS_TOKEN = "eyJraWQiOiJhdXRoLmF0bGFzc2lhbi5jb20tQUNDRVNTLTk0ZTczYTkwLTUxYWQtNGFjMS1hOWFjLWU4NGUwNDVjNDU3ZCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJmZjFjMDRkNy1hNDY3LTRjMzctOGQ3OC01NzZhNzkwYTQ1ZDIiLCJzdWIiOiI3MTIwMjA6NDE1ZmVlNGYtNjdiMy00YmQ0LTlmZTQtZTNhNTY2ZDllYWRlIiwibmJmIjoxNzMzOTc2ODk0LCJpc3MiOiJodHRwczovL2F1dGguYXRsYXNzaWFuLmNvbSIsImlhdCI6MTczMzk3Njg5NCwiZXhwIjoxNzMzOTgwNDk0LCJhdWQiOiJIQjZGT2dFVzI2Y1JWQ2dZeTR1ZDlZMllZMjlQNHV2YyIsImh0dHBzOi8vYXRsYXNzaWFuLmNvbS9vYXV0aENsaWVudElkIjoiSEI2Rk9nRVcyNmNSVkNnWXk0dWQ5WTJZWTI5UDR1dmMiLCJodHRwczovL2lkLmF0bGFzc2lhbi5jb20vc2Vzc2lvbl9pZCI6IjUxZTExZWVkLWI3MzktNGM4ZC05Y2I1LWNlNzZiYWFhYTQxYyIsImh0dHBzOi8vaWQuYXRsYXNzaWFuLmNvbS9hdGxfdG9rZW5fdHlwZSI6IkFDQ0VTUyIsImh0dHBzOi8vYXRsYXNzaWFuLmNvbS9maXJzdFBhcnR5IjpmYWxzZSwiaHR0cHM6Ly9hdGxhc3NpYW4uY29tL3N5c3RlbUFjY291bnRJZCI6IjcxMjAyMDphZTliMTJjNy01M2ZiLTQwM2EtYjI0ZS0wYWVhNDYwZTZmY2EiLCJodHRwczovL2F0bGFzc2lhbi5jb20vdmVyaWZpZWQiOnRydWUsImh0dHBzOi8vaWQuYXRsYXNzaWFuLmNvbS9wcm9jZXNzUmVnaW9uIjoidXMtZWFzdC0xIiwiaHR0cHM6Ly9pZC5hdGxhc3NpYW4uY29tL3VqdCI6IjcxNzEwMTdkLTI5MWEtNGRhOS04MDhiLTJiM2U3MGNjN2E2ZCIsImh0dHBzOi8vYXRsYXNzaWFuLmNvbS9lbWFpbERvbWFpbiI6ImdtYWlsLmNvbSIsImNsaWVudF9pZCI6IkhCNkZPZ0VXMjZjUlZDZ1l5NHVkOVkyWVkyOVA0dXZjIiwiaHR0cHM6Ly9hdGxhc3NpYW4uY29tLzNsbyI6dHJ1ZSwiaHR0cHM6Ly9pZC5hdGxhc3NpYW4uY29tL3ZlcmlmaWVkIjp0cnVlLCJzY29wZSI6InJlYWQ6Y29uZmx1ZW5jZS1jb250ZW50LmFsbCByZWFkOmNvbmZsdWVuY2UtY29udGVudC5zdW1tYXJ5IHNlYXJjaDpjb25mbHVlbmNlIiwiaHR0cHM6Ly9hdGxhc3NpYW4uY29tL3N5c3RlbUFjY291bnRFbWFpbERvbWFpbiI6ImNvbm5lY3QuYXRsYXNzaWFuLmNvbSIsImh0dHBzOi8vYXRsYXNzaWFuLmNvbS9zeXN0ZW1BY2NvdW50RW1haWwiOiIyNWNmNWEyYS01MjJiLTQ2NjAtYjM1ZS0xY2NhY2MyNWZjOWRAY29ubmVjdC5hdGxhc3NpYW4uY29tIn0.QaGh2YUy5i7aEpMJZwm0VpnB9Xk-jr46sfNrDjfLfOCK8Y67ueSfr_7UhK-1yiYnN1VVCRBzccQIDEdNYS1CqwHHk2uAWUkmMCx-wMohq5TmIz9dR-_14KAABttMVr6Sbx3gCUEbpbdJv1IsW6A_uqRYCSUNc4Qe0oGlkasTkgKyNUZUErvV_uFa1P6-Q2TuugmprQp5RkKFhZ46BAdGcTU6UeFHMbSdqp_MGfGyp0QVntTGZN4-rb65I9ELPppN0RbxwvGAqJ5TlRLti26cGFDwpKQXdIse6VHFMIXnGEu8fzt-JD_44CvFgWVk6Az_IOOUVNqQyQqZMFn7LI_ufQ"
     if event_type == "page_created":
         page_info = payload.page or {}
         page_id = page_info.get("id")
@@ -707,9 +708,9 @@ async def handle_confluence_webhook(payload: WebhookPayload):
         print(f"New Page Created: {page_title}")
 
         if page_id:
-            cloudid = get_cloudid()
+            cloudid = get_cloudid(ACCESS_TOKEN)
             if cloudid:
-                content = fetch_page_content(cloudid, page_id)
+                content = fetch_page_content(cloudid, page_id, ACCESS_TOKEN)
                 if content:
                     print(f"Page Content: {content}")
                 else:

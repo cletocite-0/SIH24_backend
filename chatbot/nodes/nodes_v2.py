@@ -70,7 +70,9 @@ async def response_generator(state):
     )
     print(state["message"])
 
-    response = await model.ainvoke(f"Draft response : \n{state['message']}")
+    response = await model.ainvoke(
+        f"Return the message only except for bad words summarize in detail : \n{state['message']}"
+    )
     return {"generation": response}
     # response_generator_history["USER"] = state["question"]
     # response_generator_history["AI"] = response
