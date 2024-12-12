@@ -40,6 +40,7 @@ from utils.utils import (
     send_to_gemini,
     create_graph,
     upload_to_firebase,
+    pdf_to_documents,
 )
 
 dotenv.load_dotenv()
@@ -279,16 +280,9 @@ def update_knowledge_graph(state):
 
     # pdf_file = BytesIO(state["pdf"])
     print("---UPDATE KNOWLEDGE GRAPH---")
-    documents = []
     # Process the PDF
     if state["pdf"]:
-        file_path = state["pdf"]
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                raw_text = page.extract_text()
-                if raw_text:
-                    document = Document(page_content=raw_text)
-                    documents.append(document)
+        documents = pdf_to_documents(state["pdf"])
     else:
         raw_text = state["documents"]["text"]
         if raw_text:

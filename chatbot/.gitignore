@@ -7,3 +7,4 @@
 /chatbot/.env
 /SIH24_backend/chatbot/.env
 /.env
+/SIH24_backend\chatbot\tools\gdrive_search_cred.json

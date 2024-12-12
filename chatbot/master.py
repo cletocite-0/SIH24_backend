@@ -11,7 +11,16 @@ import uvicorn
 from typing import Optional
 from pprint import pprint
 from pdfminer.high_level import extract_text
-from graph.graph import graph
+import requests
+import json
+from bs4 import BeautifulSoup
+
+from utils.utils import get_cloudid, fetch_page_content
+from utils.dynamic_routing import add_route, remove_route
+from utils.webhook_listeners import *
+
+# from graph.graph import graph
+from graph.graph_v2 import graph
 from dotenv import load_dotenv
 import os
 from jose import JWTError
@@ -24,7 +33,6 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
-import requests
 
 app = FastAPI()
 
@@ -35,10 +43,7 @@ os.makedirs("videos", exist_ok=True)
 # CORS configuration
 # origins = ["http://localhost:5173"]
 
-origins = [
-    "http://localhost:5173",  
-    "http://localhost:8080"
-]
+origins = ["http://localhost:5173", "http://localhost:8080"]
 
 # app.add_middleware(
 #     CORSMiddleware,
@@ -57,16 +62,16 @@ app.add_middleware(
 )
 
 # MySQL configuration
-db_config = {
-    "user": "root",
-    "password": "CowTheGreat",
-    "host": "localhost",
-    "database": "sihfinale",
-}
+# db_config = {
+#     "user": "root",
+#     "password": "CowTheGreat",
+#     "host": "localhost",
+#     "database": "sihfinale",
+# }
 
 # db_config = {
 #     "user": "root",
-#     "password": "idhika",
+#     "password": "CowTheGreat",
 #     "host": "localhost",
 #     "database": "sihfinale",
 # }
@@ -74,12 +79,12 @@ db_config = {
 # Load environment variables from the .env file
 load_dotenv()
 
-# db_config = {
-#     "user": os.getenv("MYSQL_ADDON_USER"),
-#     "password": os.getenv("MYSQL_ADDON_PASSWORD"),
-#     "host": os.getenv("MYSQL_ADDON_HOST"),
-#     "database": os.getenv("MYSQL_ADDON_DB"),
-# }
+db_config = {
+    "user": os.getenv("MYSQL_ADDON_USER"),
+    "password": os.getenv("MYSQL_ADDON_PASSWORD"),
+    "host": os.getenv("MYSQL_ADDON_HOST"),
+    "database": os.getenv("MYSQL_ADDON_DB"),
+}
 
 # Mock secret key for JWT encoding/decoding
 SECRET_KEY = "secretkey123"
@@ -111,16 +116,16 @@ class UpdateSessionTitleRequest(BaseModel):
     session_id: str
     new_title: str
 
+
 class Update2FAStatus(BaseModel):
     email: str
     g_2fa_status: bool
+
 
 class UpdateEmailStatus(BaseModel):
     email: str
     em_retrieval_status: bool
     app_password: str
-class Confluence(BaseModel):
-    code: str 
 
 
 # Database query function to get the user by email
@@ -150,6 +155,7 @@ def create_access_token(data: dict):
     print(f"Generated JWT: {token}")
     return token
 
+
 # Dependency to get current user based on the token
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -163,26 +169,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
-    
-def get_access_token(code:str):
-    """
-    Exchange the authorization code for an access token.
-    """
-    token_url = "https://auth.atlassian.com/oauth/token"
-    payload = {
-        "grant_type": "authorization_code",
-        "client_id": os.getenv("CLIENT_ID"),
-        "client_secret": os.getenv("CLIENT_SECRET"),
-        "code": code,
-        "redirect_uri": os.getenv("REDIRECT_URI"),
-    }
-
-    response = requests.post(token_url, json=payload)
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail=response.json())
-    
-    return response.json()["access_token"]
-
 
 
 # Login endpoint
@@ -203,6 +189,7 @@ def get_access_token(code:str):
 
 # Add state to store user data
 app.state.user_data = {}
+
 
 @app.post("/login")
 async def login(request: LoginRequest):
@@ -225,20 +212,22 @@ async def login(request: LoginRequest):
         "position": user["position"],
         "g_2fa_status": user["g_2fa_status"],
         "em_retrieval_status": user["em_retrieval_status"],
-        "app_password": user["app_password"]
+        "app_password": user["app_password"],
     }
 
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user_data": user_data  # Attach user data here
+        "user_data": user_data,  # Attach user data here
     }
+
 
 # Route to generate a new session ID
 @app.get("/session")
 async def generate_session():
     session_id = str(uuid.uuid4())
     return {"session_id": session_id}
+
 
 # Route to handle incoming messages and bot response
 class QueryRequest(BaseModel):
@@ -321,8 +310,8 @@ class QueryRequest(BaseModel):
 #                     bot_reply += chunk  # Append each chunk to bot_reply
 #                     print(chunk)
 #                     yield chunk
-                    
-            
+
+
 #             connection = get_db_connection()
 #             cursor = connection.cursor()
 #             # After streaming, insert bot's reply into the database
@@ -339,6 +328,7 @@ class QueryRequest(BaseModel):
 #     finally:
 #         cursor.close()
 #         connection.close()
+
 
 @app.post("/query")
 async def receive_message(
@@ -372,10 +362,6 @@ async def receive_message(
         )  # Use authenticated user's name
         connection.commit()
         print("DB UPDATED")
-
-        # Ensure directories for file storage exist
-        os.makedirs("_files", exist_ok=True)
-        os.makedirs("_videos", exist_ok=True)
 
         file_path = None
         video_path = None
@@ -419,6 +405,7 @@ async def receive_message(
 
             connection = get_db_connection()
             cursor = connection.cursor()
+            print(bot_reply)
             # After streaming, insert bot's reply into the database
             bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text, name) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(
@@ -471,6 +458,7 @@ async def fetch_messages(session_id: str):
 #         connection.close()
 
 #     return {"sessions": sessions}
+
 
 @app.post("/sessions")
 async def fetch_unique_sessions(request: Request):
@@ -603,10 +591,13 @@ async def search_session_titles(query: str = Query(..., min_length=1)):
 
     return {"sessions": [session["session_title"] for session in sessions]}
 
+
 @app.post("/update-2fa-status")
 async def update_2fa_status(request: Update2FAStatus):
     try:
-        print(f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}")
+        print(
+            f"Received request to update 2FA for email: {request.email} with status: {request.g_2fa_status}"
+        )
         connection = get_db_connection()
         cursor = connection.cursor()
 
@@ -623,26 +614,29 @@ async def update_2fa_status(request: Update2FAStatus):
 
         print(f"2FA status updated successfully for email: {request.email}")
         return {"message": "2FA status updated successfully"}
-    
+
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     finally:
         connection.close()
+
 
 @app.post("/update-email-retrieval-status")
 async def update_email_retrieval_status(request: UpdateEmailStatus):
     try:
-        print(f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}")
+        print(
+            f"Received request to update 2FA for email: {request.email} with status: {request.em_retrieval_status}"
+        )
         connection = get_db_connection()
         cursor = connection.cursor()
 
         # Update query
         cursor.execute(
             "UPDATE users SET em_retrieval_status = %s, app_password=%s WHERE email = %s",
-             (int(request.em_retrieval_status), request.app_password  ,request.email), 
-              # Convert bool to int (0 or 1)
+            (int(request.em_retrieval_status), request.app_password, request.email),
+            # Convert bool to int (0 or 1)
         )
         connection.commit()
 
@@ -652,76 +646,106 @@ async def update_email_retrieval_status(request: UpdateEmailStatus):
 
         print(f"Email Status updated successfully for email: {request.email}")
         return {"message": "Email status updated successfully"}
-    
+
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     finally:
         connection.close()
+
 
 @app.get("/download_chat/{name}")
 async def download_chat(name: str):
     # Step 1: Fetch messages from the database
-    connection = get_db_connection()
+    connection = get_db_connection()  # Replace with your DB connection
     cursor = connection.cursor()
-    cursor.execute("SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,))
+    cursor.execute(
+        "SELECT sender, text, timestamp FROM messages WHERE name=%s", (name,)
+    )
     messages = cursor.fetchall()
     connection.close()
 
     # Step 2: Generate PDF
     pdf_buffer = BytesIO()
     pdf = canvas.Canvas(pdf_buffer)
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(100, 800, f"Chat Conversation: {name}")  # Title
+    pdf.drawString(100, 800, "Chat Conversation")  # Title
     y = 780
-    line_height = 15
-    max_width = 450  # Adjust max width for wrapping text
-
-    def wrap_text(text, max_width, pdf):
-        """Wraps text to fit within the max_width on the PDF."""
-        lines = []
-        while text:
-            line = text
-            while pdf.stringWidth(line) > max_width and " " in line:
-                line = line[:line.rfind(" ")]  # Break line at the last space
-            lines.append(line.strip())
-            text = text[len(line):].strip()
-        return lines
-
     for sender, text, timestamp in messages:
-        formatted_message = f"{datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')} - {sender}: {text}"
-        wrapped_text = wrap_text(formatted_message, max_width, pdf)
-
-        for line in wrapped_text:
-            pdf.drawString(50, y, line)
-            y -= line_height
-            if y < 50:  # Prevent text overflow and add a new page
-                pdf.showPage()
-                pdf.setFont("Helvetica", 10)
-                pdf.drawString(100, 800, f"Chat Conversation: {name} (continued)")
-                y = 780
+        pdf.drawString(50, y, f"{timestamp} - {sender}: {text}")
+        y -= 20  # Adjust line height
+        if y < 50:  # Prevent text overflow
+            pdf.showPage()
+            y = 800
 
     pdf.save()
     pdf_buffer.seek(0)
 
     # Step 3: Send PDF as a response
-    headers = {
-        'Content-Disposition': f'attachment; filename="chat_{name}.pdf"'
-    }
-    return Response(pdf_buffer.getvalue(), media_type='application/pdf', headers=headers)
+    headers = {"Content-Disposition": f'attachment; filename="chat_{name}.pdf"'}
+    return Response(
+        pdf_buffer.getvalue(), media_type="application/pdf", headers=headers
+    )
 
-@app.get("/callback")
-def callback(code: str):
-    """
-    Callback endpoint to handle OAuth redirect, fetch access token, and query pages.
-    """
-    # Step 1: Exchange the authorization code for an access token
-    access_token = get_access_token(code)
-    print("access token = ", access_token)
 
-    user_data = localStorage.getItem('user_data')
-    user_id = json.loads(user_data).get('id')
+class WebhookPayload(BaseModel):
+    eventType: str = None
+    page: dict = None
+
+
+@app.post("/confluence-webhook")
+async def handle_confluence_webhook(payload: WebhookPayload):
+    if not payload:
+        raise HTTPException(status_code=400, detail="No payload provided")
+
+    event_type = payload.eventType
+
+    if event_type == "page_created":
+        page_info = payload.page or {}
+        page_id = page_info.get("id")
+        page_title = page_info.get("title")
+        print(f"New Page Created: {page_title}")
+
+        if page_id:
+            cloudid = get_cloudid()
+            if cloudid:
+                content = fetch_page_content(cloudid, page_id)
+                if content:
+                    print(f"Page Content: {content}")
+                else:
+                    print("Failed to fetch page content.")
+            else:
+                print("Failed to retrieve cloudid.")
+
+    print(
+        "Full Webhook Payload:", json.dumps(payload.dict(), indent=2)
+    )  # Using json.dumps for formatted output
+    return {"status": "received"}
+
+
+@app.post("/configure")
+async def configure_webhook(trigger_name: str):
+    webhook_path = f"/webhook/{trigger_name}"  # Unique webhook path
+    try:
+        add_route(
+            app, webhook_path, trigger_name, method_name=f"{trigger_name}_listener"
+        )
+        return {
+            "message": f"{trigger_name} Webhook configured",
+            "webhook_url": webhook_path,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# An API endpoint to remove a webhook listener
+@app.post("/remove")
+async def remove_webhook(webhook_path: str):
+    try:
+        remove_route(app, webhook_path)
+        return {"message": f"{webhook_path} Webhook removed"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Run the FastAPI app using Uvicorn or Gunicorn if deployed on a server
